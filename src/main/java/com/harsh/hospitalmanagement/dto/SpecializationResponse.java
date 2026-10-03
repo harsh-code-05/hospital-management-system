@@ -1,14 +1,13 @@
 package com.harsh.hospitalmanagement.dto;
 
-import com.harsh.hospitalmanagement.enums.Role;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
-public class UserResponse {
+public class SpecializationResponse {
 
     private Long id;
-    private String email;
-    private Role role;
+    private String name;
+    private String description;
 }

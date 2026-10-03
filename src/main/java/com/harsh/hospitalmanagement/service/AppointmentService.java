@@ -4,7 +4,9 @@ import com.harsh.hospitalmanagement.entity.Appointment;
 import com.harsh.hospitalmanagement.entity.AppointmentSlot;
 import com.harsh.hospitalmanagement.entity.Doctor;
 import com.harsh.hospitalmanagement.entity.Patient;
+import com.harsh.hospitalmanagement.enums.AppointmentStatus;
 import com.harsh.hospitalmanagement.enums.SlotStatus;
+import com.harsh.hospitalmanagement.exception.BadRequestException;
 import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 import com.harsh.hospitalmanagement.repository.AppointmentRepository;
 import com.harsh.hospitalmanagement.repository.AppointmentSlotRepository;
@@ -12,6 +14,8 @@ import com.harsh.hospitalmanagement.repository.DoctorRepository;
 import com.harsh.hospitalmanagement.repository.PatientRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 @Service
 public class AppointmentService {
@@ -33,6 +37,13 @@ public class AppointmentService {
         this.doctorRepository = doctorRepository;
     }
 
+    public Appointment getAppointmentById(Long id) {
+
+        return appointmentRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Appointment not found"));
+    }
+
     @Transactional
     public Appointment bookAppointment(
             Long patientId,
@@ -41,21 +52,26 @@ public class AppointmentService {
             String reason) {
 
         Patient patient = patientRepository.findById(patientId)
-                .orElseThrow(() -> new ResourceNotFoundException("Patient not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Patient not found"));
 
         Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Doctor not found"));
 
-        AppointmentSlot slot = appointmentSlotRepository
-                .findByIdForUpdate(slotId)
-                .orElseThrow(() -> new ResourceNotFoundException("Appointment slot not found"));
+        AppointmentSlot slot = appointmentSlotRepository.findByIdForUpdate(slotId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Appointment slot not found"));
 
         if (slot.getStatus() != SlotStatus.AVAILABLE) {
-            throw new RuntimeException("Appointment slot is not available");
+            throw new BadRequestException(
+                    "Appointment slot is not available");
         }
 
         if (!slot.getDoctor().getId().equals(doctor.getId())) {
-            throw new RuntimeException("Slot does not belong to this doctor");
+            throw new BadRequestException(
+                    "Slot does not belong to this doctor");
         }
 
         slot.setStatus(SlotStatus.BOOKED);
@@ -66,9 +82,8 @@ public class AppointmentService {
         appointment.setDoctor(doctor);
         appointment.setSlot(slot);
         appointment.setReason(reason);
-        appointment.setStatus(
-                com.harsh.hospitalmanagement.enums.AppointmentStatus.CONFIRMED
-        );
+        appointment.setStatus(AppointmentStatus.CONFIRMED);
+        appointment.setCreatedAt(LocalDateTime.now());
 
         return appointmentRepository.save(appointment);
     }

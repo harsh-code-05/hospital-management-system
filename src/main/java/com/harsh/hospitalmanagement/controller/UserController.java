@@ -1,11 +1,12 @@
 package com.harsh.hospitalmanagement.controller;
 
 import com.harsh.hospitalmanagement.dto.UserRequest;
+import com.harsh.hospitalmanagement.dto.UserResponse;
 import com.harsh.hospitalmanagement.entity.User;
 import com.harsh.hospitalmanagement.service.UserService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/users")
@@ -18,11 +19,16 @@ public class UserController {
     }
 
     @PostMapping
-    public ResponseEntity<User> createUser(
+    public ResponseEntity<UserResponse> createUser(
             @Valid @RequestBody UserRequest request) {
 
-        return ResponseEntity.ok(
-                userService.createUser(request)
-        );
+        User user = userService.createUser(request);
+
+        UserResponse response = new UserResponse();
+        response.setId(user.getId());
+        response.setEmail(user.getEmail());
+        response.setRole(user.getRole());
+
+        return ResponseEntity.ok(response);
     }
 }
