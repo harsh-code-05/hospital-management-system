@@ -5,6 +5,7 @@ import com.harsh.hospitalmanagement.entity.Patient;
 import com.harsh.hospitalmanagement.service.PatientService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/patients")
@@ -18,7 +19,7 @@ public class PatientController {
 
     @PostMapping
     public ResponseEntity<Patient> createPatient(
-            @RequestBody PatientRequest request) {
+            @Valid @RequestBody PatientRequest request) {
 
         return ResponseEntity.ok(
                 patientService.createPatient(request)

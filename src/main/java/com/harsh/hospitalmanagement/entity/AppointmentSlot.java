@@ -15,7 +15,20 @@ import java.time.LocalTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "appointment_slots")
+@Table(name = "appointment_slots",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_doctor_slot_time",
+                        columnNames = {
+                                "doctor_id",
+                                "date",
+                                "start_time",
+                                "end_time"
+                        }
+                )
+        }
+)
+
 public class AppointmentSlot {
 
     @Id
@@ -30,7 +43,6 @@ public class AppointmentSlot {
 
     @Enumerated(EnumType.STRING)
     private SlotStatus status;
-
 
     @ManyToOne
     @JoinColumn(name = "doctor_id", nullable = false)

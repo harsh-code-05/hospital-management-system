@@ -5,6 +5,7 @@ import com.harsh.hospitalmanagement.entity.User;
 import com.harsh.hospitalmanagement.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/users")
@@ -18,7 +19,7 @@ public class UserController {
 
     @PostMapping
     public ResponseEntity<User> createUser(
-            @RequestBody UserRequest request) {
+            @Valid @RequestBody UserRequest request) {
 
         return ResponseEntity.ok(
                 userService.createUser(request)

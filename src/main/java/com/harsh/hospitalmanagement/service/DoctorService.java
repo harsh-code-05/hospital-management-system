@@ -8,6 +8,7 @@ import com.harsh.hospitalmanagement.repository.DoctorRepository;
 import com.harsh.hospitalmanagement.repository.SpecializationRepository;
 import com.harsh.hospitalmanagement.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 
 @Service
 public class DoctorService {
@@ -28,7 +29,7 @@ public class DoctorService {
 
     public Doctor getDoctorById(Long id) {
         return doctorRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Doctor not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found"));
     }
 
     public Doctor saveDoctor(Doctor doctor) {
@@ -38,11 +39,11 @@ public class DoctorService {
     public Doctor createDoctor(DoctorRequest request) {
 
         User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         Specialization specialization =
                 specializationRepository.findById(request.getSpecializationId())
-                        .orElseThrow(() -> new RuntimeException("Specialization not found"));
+                        .orElseThrow(() -> new ResourceNotFoundException("Specialization not found"));
 
         Doctor doctor = new Doctor();
 

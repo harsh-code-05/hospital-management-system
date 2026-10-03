@@ -3,6 +3,7 @@ package com.harsh.hospitalmanagement.service;
 import com.harsh.hospitalmanagement.entity.AppointmentSlot;
 import com.harsh.hospitalmanagement.entity.DoctorAvailability;
 import com.harsh.hospitalmanagement.enums.SlotStatus;
+import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 import com.harsh.hospitalmanagement.repository.AppointmentSlotRepository;
 import com.harsh.hospitalmanagement.repository.DoctorAvailabilityRepository;
 import org.springframework.stereotype.Service;
@@ -27,7 +28,8 @@ public class AppointmentSlotService {
 
     public AppointmentSlot getSlotById(Long id) {
         return appointmentSlotRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Appointment slot not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Appointment slot not found"));
     }
 
     public AppointmentSlot saveSlot(AppointmentSlot slot) {
@@ -39,7 +41,8 @@ public class AppointmentSlotService {
         DoctorAvailability availability =
                 doctorAvailabilityRepository.findById(availabilityId)
                         .orElseThrow(() ->
-                                new RuntimeException("Doctor availability not found"));
+                                new ResourceNotFoundException(
+                                        "Doctor availability not found"));
 
         LocalTime currentTime = availability.getStartTime();
         LocalTime endTime = availability.getEndTime();
@@ -48,19 +51,36 @@ public class AppointmentSlotService {
 
         while (currentTime.plusMinutes(30).compareTo(endTime) <= 0) {
 
-            AppointmentSlot slot = new AppointmentSlot();
+            LocalTime slotEndTime = currentTime.plusMinutes(30);
 
-            slot.setDate(availability.getDate());
-            slot.setStartTime(currentTime);
-            slot.setEndTime(currentTime.plusMinutes(30));
-            slot.setStatus(SlotStatus.AVAILABLE);
-            slot.setDoctor(availability.getDoctor());
+            boolean alreadyExists =
+                    appointmentSlotRepository.existsByDoctorAndDateAndTime(
+                            availability.getDoctor().getId(),
+                            availability.getDate(),
+                            currentTime,
+                            slotEndTime
+                    );
 
-            slots.add(slot);
+            if (!alreadyExists) {
 
-            currentTime = currentTime.plusMinutes(30);
+                AppointmentSlot slot = new AppointmentSlot();
+
+                slot.setDate(availability.getDate());
+                slot.setStartTime(currentTime);
+                slot.setEndTime(slotEndTime);
+                slot.setStatus(SlotStatus.AVAILABLE);
+                slot.setDoctor(availability.getDoctor());
+
+                slots.add(slot);
+            }
+
+            currentTime = slotEndTime;
         }
 
-        return appointmentSlotRepository.saveAll(slots);
+        if (!slots.isEmpty()) {
+            return appointmentSlotRepository.saveAll(slots);
+        }
+
+        return slots;
     }
 }

@@ -1,11 +1,13 @@
 package com.harsh.hospitalmanagement.service;
 
+
 import com.harsh.hospitalmanagement.dto.PatientRequest;
 import com.harsh.hospitalmanagement.entity.Patient;
 import com.harsh.hospitalmanagement.entity.User;
 import com.harsh.hospitalmanagement.repository.PatientRepository;
 import com.harsh.hospitalmanagement.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 
 @Service
 public class PatientService {
@@ -23,7 +25,7 @@ public class PatientService {
 
     public Patient getPatientById(Long id) {
         return patientRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Patient not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found"));
     }
 
     public Patient savePatient(Patient patient) {
@@ -33,7 +35,7 @@ public class PatientService {
     public Patient createPatient(PatientRequest request) {
 
         User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         Patient patient = new Patient();
 

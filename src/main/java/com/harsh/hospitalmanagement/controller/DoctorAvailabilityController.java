@@ -3,6 +3,7 @@ package com.harsh.hospitalmanagement.controller;
 import com.harsh.hospitalmanagement.dto.DoctorAvailabilityRequest;
 import com.harsh.hospitalmanagement.entity.DoctorAvailability;
 import com.harsh.hospitalmanagement.service.DoctorAvailabilityService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,7 +21,7 @@ public class DoctorAvailabilityController {
 
     @PostMapping
     public ResponseEntity<DoctorAvailability> createAvailability(
-            @RequestBody DoctorAvailabilityRequest request) {
+            @Valid @RequestBody DoctorAvailabilityRequest request) {
 
         return ResponseEntity.ok(
                 doctorAvailabilityService.createAvailability(request)

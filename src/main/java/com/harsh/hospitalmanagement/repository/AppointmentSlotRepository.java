@@ -6,6 +6,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Optional;
 
 
@@ -16,4 +19,20 @@ public interface AppointmentSlotRepository
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM AppointmentSlot s WHERE s.id = :id")
     Optional<AppointmentSlot> findByIdForUpdate(@Param("id") Long id);
+
+
+    @Query("""
+        SELECT COUNT(s) > 0
+        FROM AppointmentSlot s
+        WHERE s.doctor.id = :doctorId
+        AND s.date = :date
+        AND s.startTime = :startTime
+        AND s.endTime = :endTime
+        """)
+    boolean existsByDoctorAndDateAndTime(
+            @Param("doctorId") Long doctorId,
+            @Param("date") LocalDate date,
+            @Param("startTime") LocalTime startTime,
+            @Param("endTime") LocalTime endTime
+    );
 }

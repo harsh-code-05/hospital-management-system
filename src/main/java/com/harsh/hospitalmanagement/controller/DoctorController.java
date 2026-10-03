@@ -3,8 +3,10 @@ package com.harsh.hospitalmanagement.controller;
 import com.harsh.hospitalmanagement.dto.DoctorRequest;
 import com.harsh.hospitalmanagement.entity.Doctor;
 import com.harsh.hospitalmanagement.service.DoctorService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/doctors")
@@ -18,7 +20,7 @@ public class DoctorController {
 
     @PostMapping
     public ResponseEntity<Doctor> createDoctor(
-            @RequestBody DoctorRequest request) {
+            @Valid  @RequestBody DoctorRequest request) {
 
         return ResponseEntity.ok(
                 doctorService.createDoctor(request)

@@ -5,6 +5,7 @@ import com.harsh.hospitalmanagement.entity.AppointmentSlot;
 import com.harsh.hospitalmanagement.entity.Doctor;
 import com.harsh.hospitalmanagement.entity.Patient;
 import com.harsh.hospitalmanagement.enums.SlotStatus;
+import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 import com.harsh.hospitalmanagement.repository.AppointmentRepository;
 import com.harsh.hospitalmanagement.repository.AppointmentSlotRepository;
 import com.harsh.hospitalmanagement.repository.DoctorRepository;
@@ -40,14 +41,14 @@ public class AppointmentService {
             String reason) {
 
         Patient patient = patientRepository.findById(patientId)
-                .orElseThrow(() -> new RuntimeException("Patient not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found"));
 
         Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new RuntimeException("Doctor not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found"));
 
         AppointmentSlot slot = appointmentSlotRepository
                 .findByIdForUpdate(slotId)
-                .orElseThrow(() -> new RuntimeException("Appointment slot not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment slot not found"));
 
         if (slot.getStatus() != SlotStatus.AVAILABLE) {
             throw new RuntimeException("Appointment slot is not available");

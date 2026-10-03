@@ -3,6 +3,7 @@ package com.harsh.hospitalmanagement.controller;
 import com.harsh.hospitalmanagement.dto.AppointmentRequest;
 import com.harsh.hospitalmanagement.entity.Appointment;
 import com.harsh.hospitalmanagement.service.AppointmentService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,7 +19,7 @@ public class AppointmentController {
 
     @PostMapping
     public ResponseEntity<Appointment> bookAppointment(
-            @RequestBody AppointmentRequest request) {
+            @Valid @RequestBody AppointmentRequest request) {
 
         Appointment appointment = appointmentService.bookAppointment(
                 request.getPatientId(),

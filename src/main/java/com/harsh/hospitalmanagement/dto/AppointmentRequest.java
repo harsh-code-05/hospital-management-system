@@ -1,59 +1,23 @@
 package com.harsh.hospitalmanagement.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import lombok.Getter;
+import lombok.Setter;
 
+@Getter
+@Setter
 public class AppointmentRequest {
 
-    @NotNull
+    @NotNull(message = "Patient ID is required")
     private Long patientId;
 
-    @NotNull
+    @NotNull(message = "Doctor ID is required")
     private Long doctorId;
 
-    @NotNull
+    @NotNull(message = "Slot ID is required")
     private Long slotId;
 
+    @NotBlank(message = "Reason is required")
     private String reason;
-
-    public AppointmentRequest() {
-    }
-
-    public AppointmentRequest(Long patientId, Long doctorId, Long slotId, String reason) {
-        this.patientId = patientId;
-        this.doctorId = doctorId;
-        this.slotId = slotId;
-        this.reason = reason;
-    }
-
-    public Long getPatientId() {
-        return patientId;
-    }
-
-    public void setPatientId(Long patientId) {
-        this.patientId = patientId;
-    }
-
-    public Long getDoctorId() {
-        return doctorId;
-    }
-
-    public void setDoctorId(Long doctorId) {
-        this.doctorId = doctorId;
-    }
-
-    public Long getSlotId() {
-        return slotId;
-    }
-
-    public void setSlotId(Long slotId) {
-        this.slotId = slotId;
-    }
-
-    public String getReason() {
-        return reason;
-    }
-
-    public void setReason(String reason) {
-        this.reason = reason;
-    }
 }

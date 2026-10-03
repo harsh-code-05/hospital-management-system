@@ -1,5 +1,6 @@
 package com.harsh.hospitalmanagement.service;
 
+import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 import com.harsh.hospitalmanagement.dto.UserRequest;
 import com.harsh.hospitalmanagement.entity.User;
 import com.harsh.hospitalmanagement.repository.UserRepository;
@@ -16,7 +17,7 @@ public class UserService {
 
     public User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 
     public User createUser(UserRequest request) {
