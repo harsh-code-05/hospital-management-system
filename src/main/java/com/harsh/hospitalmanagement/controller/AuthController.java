@@ -22,10 +22,13 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final SecurityContextRepository securityContextRepository;
 
-    public AuthController(AuthenticationManager authenticationManager) {
+
+    public AuthController(
+            AuthenticationManager authenticationManager,
+            SecurityContextRepository securityContextRepository) {
+
         this.authenticationManager = authenticationManager;
-        this.securityContextRepository =
-                new HttpSessionSecurityContextRepository();
+        this.securityContextRepository = securityContextRepository;
     }
 
     @PostMapping("/login")
