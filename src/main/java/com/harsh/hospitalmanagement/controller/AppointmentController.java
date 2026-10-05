@@ -6,6 +6,7 @@ import com.harsh.hospitalmanagement.service.AppointmentService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
 
 @RestController
 @RequestMapping("/api/appointments")
@@ -19,13 +20,15 @@ public class AppointmentController {
 
     @PostMapping
     public ResponseEntity<AppointmentResponse> bookAppointment(
-            @Valid @RequestBody AppointmentRequest request) {
+            @Valid @RequestBody AppointmentRequest request,
+            Authentication authentication) {
 
         Appointment appointment = appointmentService.bookAppointment(
                 request.getPatientId(),
                 request.getDoctorId(),
                 request.getSlotId(),
-                request.getReason()
+                request.getReason(),
+                authentication.getName()
         );
 
         return ResponseEntity.ok(toResponse(appointment));

@@ -4,6 +4,7 @@ package com.harsh.hospitalmanagement.service;
 import com.harsh.hospitalmanagement.dto.PatientRequest;
 import com.harsh.hospitalmanagement.entity.Patient;
 import com.harsh.hospitalmanagement.entity.User;
+import com.harsh.hospitalmanagement.exception.ForbiddenException;
 import com.harsh.hospitalmanagement.repository.PatientRepository;
 import com.harsh.hospitalmanagement.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -47,5 +48,29 @@ public class PatientService {
         patient.setPhone(request.getPhone());
 
         return patientRepository.save(patient);
+    }
+
+
+    public Patient getPatientByIdForUser(
+            Long patientId,
+            String authenticatedEmail,
+            boolean admin) {
+
+        Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Patient not found"));
+
+        if (admin) {
+            return patient;
+        }
+
+        String patientEmail = patient.getUser().getEmail();
+
+        if (!patientEmail.equals(authenticatedEmail)) {
+            throw new ForbiddenException(
+                    "You are not allowed to access this patient");
+        }
+
+        return patient;
     }
 }

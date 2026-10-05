@@ -7,6 +7,7 @@ import com.harsh.hospitalmanagement.entity.Patient;
 import com.harsh.hospitalmanagement.enums.AppointmentStatus;
 import com.harsh.hospitalmanagement.enums.SlotStatus;
 import com.harsh.hospitalmanagement.exception.BadRequestException;
+import com.harsh.hospitalmanagement.exception.ForbiddenException;
 import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 import com.harsh.hospitalmanagement.repository.AppointmentRepository;
 import com.harsh.hospitalmanagement.repository.AppointmentSlotRepository;
@@ -49,15 +50,24 @@ public class AppointmentService {
             Long patientId,
             Long doctorId,
             Long slotId,
-            String reason) {
+            String reason,
+            String authenticatedEmail) {
 
         Patient patient = patientRepository.findById(patientId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Patient not found"));
 
+        String patientEmail = patient.getUser().getEmail();
+
+        if (!patientEmail.equals(authenticatedEmail)) {
+            throw new ForbiddenException(
+                    "You are not allowed to book an appointment for this patient");
+        }
+
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Doctor not found"));
+
 
         AppointmentSlot slot = appointmentSlotRepository.findByIdForUpdate(slotId)
                 .orElseThrow(() ->

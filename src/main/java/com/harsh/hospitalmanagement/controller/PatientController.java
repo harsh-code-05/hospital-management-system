@@ -9,6 +9,7 @@ import com.harsh.hospitalmanagement.service.PatientService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
 
 @RestController
 @RequestMapping("/api/patients")
@@ -31,9 +32,19 @@ public class PatientController {
 
     @GetMapping("/{id}")
     public ResponseEntity<PatientResponse> getPatientById(
-            @PathVariable Long id) {
+            @PathVariable Long id,
+            Authentication authentication) {
 
-        Patient patient = patientService.getPatientById(id);
+        boolean admin = authentication.getAuthorities()
+                .stream()
+                .anyMatch(authority ->
+                        authority.getAuthority().equals("ROLE_ADMIN"));
+
+        Patient patient = patientService.getPatientByIdForUser(
+                id,
+                authentication.getName(),
+                admin
+        );
 
         return ResponseEntity.ok(toResponse(patient));
     }
