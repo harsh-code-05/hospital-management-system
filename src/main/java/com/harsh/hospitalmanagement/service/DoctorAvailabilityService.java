@@ -4,6 +4,7 @@ import com.harsh.hospitalmanagement.dto.DoctorAvailabilityRequest;
 import com.harsh.hospitalmanagement.entity.Doctor;
 import com.harsh.hospitalmanagement.entity.DoctorAvailability;
 import com.harsh.hospitalmanagement.exception.BadRequestException;
+import com.harsh.hospitalmanagement.exception.ForbiddenException;
 import com.harsh.hospitalmanagement.repository.DoctorAvailabilityRepository;
 import com.harsh.hospitalmanagement.repository.DoctorRepository;
 import org.springframework.stereotype.Service;
@@ -35,11 +36,20 @@ public class DoctorAvailabilityService {
     }
 
     public DoctorAvailability createAvailability(
-            DoctorAvailabilityRequest request) {
-
+            DoctorAvailabilityRequest request,
+            String authenticatedEmail,
+            boolean admin) {
         Doctor doctor = doctorRepository.findById(request.getDoctorId())
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found"));
 
+        if (!admin) {
+            String doctorEmail = doctor.getUser().getEmail();
+
+            if (!doctorEmail.equals(authenticatedEmail)) {
+                throw new ForbiddenException(
+                        "You are not allowed to manage this doctor's availability");
+            }
+        }
 
         if (!request.getStartTime().isBefore(request.getEndTime())) {
             throw new BadRequestException(

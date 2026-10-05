@@ -13,6 +13,7 @@ import com.harsh.hospitalmanagement.service.DoctorAvailabilityService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
 
 @RestController
 @RequestMapping("/api/doctor-availability")
@@ -27,10 +28,19 @@ public class DoctorAvailabilityController {
 
     @PostMapping
     public ResponseEntity<DoctorAvailabilityResponse> createAvailability(
-            @Valid @RequestBody DoctorAvailabilityRequest request) {
+            @Valid @RequestBody DoctorAvailabilityRequest request,
+            Authentication authentication) {
 
         DoctorAvailability availability =
-                doctorAvailabilityService.createAvailability(request);
+                doctorAvailabilityService.createAvailability(
+                        request,
+                        authentication.getName(),
+                        authentication.getAuthorities()
+                                .stream()
+                                .anyMatch(authority ->
+                                        authority.getAuthority()
+                                                .equals("ROLE_ADMIN"))
+                );
 
         return ResponseEntity.ok(toResponse(availability));
     }
