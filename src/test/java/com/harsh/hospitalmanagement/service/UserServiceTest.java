@@ -4,6 +4,7 @@ import com.harsh.hospitalmanagement.dto.UserRequest;
 import com.harsh.hospitalmanagement.entity.User;
 import com.harsh.hospitalmanagement.enums.Role;
 import com.harsh.hospitalmanagement.exception.BadRequestException;
+import com.harsh.hospitalmanagement.exception.ForbiddenException;
 import com.harsh.hospitalmanagement.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -71,7 +72,7 @@ class UserServiceTest {
         UserRequest request = new UserRequest();
         request.setEmail("duplicate@example.com");
         request.setPassword("password123");
-        request.setRole(Role.DOCTOR);
+        request.setRole(Role.PATIENT);
 
         when(userRepository.existsByEmail("duplicate@example.com")).thenReturn(true);
 
@@ -81,6 +82,21 @@ class UserServiceTest {
                 .hasMessage("Email already exists");
 
         verify(userRepository).existsByEmail("duplicate@example.com");
+        verify(userRepository, never()).save(any(User.class));
+    }
+    @Test
+    void createUser_shouldThrowForbiddenException_whenRoleIsNotPatient() {
+
+        UserRequest request = new UserRequest();
+        request.setEmail("admin@example.com");
+        request.setPassword("password123");
+        request.setRole(Role.ADMIN);
+
+        assertThatThrownBy(() -> userService.createUser(request))
+                .isInstanceOf(ForbiddenException.class)
+                .hasMessage("Public registration is allowed only for PATIENT role");
+
+        verify(userRepository, never()).existsByEmail(anyString());
         verify(userRepository, never()).save(any(User.class));
     }
 }

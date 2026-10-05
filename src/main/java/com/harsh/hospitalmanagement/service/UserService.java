@@ -2,7 +2,9 @@ package com.harsh.hospitalmanagement.service;
 
 import com.harsh.hospitalmanagement.dto.UserRequest;
 import com.harsh.hospitalmanagement.entity.User;
+import com.harsh.hospitalmanagement.enums.Role;
 import com.harsh.hospitalmanagement.exception.BadRequestException;
+import com.harsh.hospitalmanagement.exception.ForbiddenException;
 import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 import com.harsh.hospitalmanagement.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,6 +32,11 @@ public class UserService {
     }
 
     public User createUser(UserRequest request) {
+
+        if (request.getRole() != Role.PATIENT) {
+            throw new ForbiddenException(
+                    "Public registration is allowed only for PATIENT role");
+        }
 
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("Email already exists");
