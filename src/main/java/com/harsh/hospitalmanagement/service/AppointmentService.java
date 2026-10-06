@@ -97,4 +97,81 @@ public class AppointmentService {
 
         return appointmentRepository.save(appointment);
     }
+    @Transactional
+    public Appointment cancelAppointment(
+            Long appointmentId,
+            String authenticatedEmail,
+            String role) {
+
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Appointment not found"));
+
+        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new BadRequestException(
+                    "Only confirmed appointments can be cancelled");
+        }
+
+        boolean admin = role.equals("ROLE_ADMIN");
+
+        String patientEmail = appointment.getPatient()
+                .getUser()
+                .getEmail();
+
+        String doctorEmail = appointment.getDoctor()
+                .getUser()
+                .getEmail();
+
+        boolean patientOwner = patientEmail.equals(authenticatedEmail);
+        boolean doctorOwner = doctorEmail.equals(authenticatedEmail);
+
+        if (!admin && !patientOwner && !doctorOwner) {
+            throw new ForbiddenException(
+                    "You are not allowed to cancel this appointment");
+        }
+
+        AppointmentSlot slot = appointmentSlotRepository.findByIdForUpdate(
+                        appointment.getSlot().getId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Appointment slot not found"));
+
+        appointment.setStatus(AppointmentStatus.CANCELLED);
+        slot.setStatus(SlotStatus.AVAILABLE);
+
+        return appointmentRepository.save(appointment);
+    }
+
+    @Transactional
+    public Appointment completeAppointment(
+            Long appointmentId,
+            String authenticatedEmail,
+            String role) {
+
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Appointment not found"));
+
+        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new BadRequestException(
+                    "Only confirmed appointments can be completed");
+        }
+
+        boolean admin = role.equals("ROLE_ADMIN");
+
+        String doctorEmail = appointment.getDoctor()
+                .getUser()
+                .getEmail();
+
+        boolean doctorOwner = doctorEmail.equals(authenticatedEmail);
+
+        if (!admin && !doctorOwner) {
+            throw new ForbiddenException(
+                    "Only the assigned doctor or admin can complete this appointment");
+        }
+
+        appointment.setStatus(AppointmentStatus.COMPLETED);
+
+        return appointmentRepository.save(appointment);
+    }
 }

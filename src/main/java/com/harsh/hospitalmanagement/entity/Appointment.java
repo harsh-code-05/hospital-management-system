@@ -36,7 +36,7 @@ public class Appointment {
     @JoinColumn(name = "doctor_id", nullable = false)
     private Doctor doctor;
 
-    @OneToOne
-    @JoinColumn(name = "slot_id", nullable = false, unique = true)
+    @ManyToOne
+    @JoinColumn(name = "slot_id", nullable = false)
     private AppointmentSlot slot;
 }

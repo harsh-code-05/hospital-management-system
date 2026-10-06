@@ -116,4 +116,40 @@ public class AppointmentController {
 
         return response;
     }
+    @PatchMapping("/{id}/cancel")
+    public ResponseEntity<AppointmentResponse> cancelAppointment(
+            @PathVariable Long id,
+            Authentication authentication) {
+
+        String role = authentication.getAuthorities().stream()
+                .findFirst()
+                .map(authority -> authority.getAuthority())
+                .orElse("");
+
+        Appointment appointment = appointmentService.cancelAppointment(
+                id,
+                authentication.getName(),
+                role
+        );
+
+        return ResponseEntity.ok(toResponse(appointment));
+    }
+    @PatchMapping("/{id}/complete")
+    public ResponseEntity<AppointmentResponse> completeAppointment(
+            @PathVariable Long id,
+            Authentication authentication) {
+
+        String role = authentication.getAuthorities().stream()
+                .findFirst()
+                .map(authority -> authority.getAuthority())
+                .orElse("");
+
+        Appointment appointment = appointmentService.completeAppointment(
+                id,
+                authentication.getName(),
+                role
+        );
+
+        return ResponseEntity.ok(toResponse(appointment));
+    }
 }
