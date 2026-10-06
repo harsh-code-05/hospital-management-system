@@ -70,6 +70,11 @@ public class SecurityConfig {
 
                         .requestMatchers(
                                 HttpMethod.POST,
+                                "/api/admin/users"
+                        ).hasRole("ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.POST,
                                 "/api/specializations/**"
                         ).hasRole("ADMIN")
 
