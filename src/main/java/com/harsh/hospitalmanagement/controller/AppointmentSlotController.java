@@ -11,6 +11,7 @@ import com.harsh.hospitalmanagement.entity.User;
 import com.harsh.hospitalmanagement.service.AppointmentSlotService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
 
 import java.util.List;
 
@@ -25,20 +26,7 @@ public class AppointmentSlotController {
         this.appointmentSlotService = appointmentSlotService;
     }
 
-    @PostMapping("/generate/{availabilityId}")
-    public ResponseEntity<List<AppointmentSlotResponse>> generateSlots(
-            @PathVariable Long availabilityId) {
 
-        List<AppointmentSlot> slots =
-                appointmentSlotService.generateSlots(availabilityId);
-
-        List<AppointmentSlotResponse> responses =
-                slots.stream()
-                        .map(this::toResponse)
-                        .toList();
-
-        return ResponseEntity.ok(responses);
-    }
 
     @GetMapping("/{id}")
     public ResponseEntity<AppointmentSlotResponse> getSlotById(
@@ -86,5 +74,27 @@ public class AppointmentSlotController {
         response.setDoctor(doctorResponse);
 
         return response;
+    }
+
+    @PostMapping("/{availabilityId}/generate")
+    public ResponseEntity<List<AppointmentSlotResponse>> generateSlots(
+            @PathVariable Long availabilityId,
+            Authentication authentication) {
+
+        boolean admin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        List<AppointmentSlot> slots =
+                appointmentSlotService.generateSlots(
+                        availabilityId,
+                        authentication.getName(),
+                        admin);
+
+        List<AppointmentSlotResponse> responses =
+                slots.stream()
+                        .map(this::toResponse)
+                        .toList();
+
+        return ResponseEntity.ok(responses);
     }
 }

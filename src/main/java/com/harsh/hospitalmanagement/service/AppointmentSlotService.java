@@ -3,6 +3,7 @@ package com.harsh.hospitalmanagement.service;
 import com.harsh.hospitalmanagement.entity.AppointmentSlot;
 import com.harsh.hospitalmanagement.entity.DoctorAvailability;
 import com.harsh.hospitalmanagement.enums.SlotStatus;
+import com.harsh.hospitalmanagement.exception.ForbiddenException;
 import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 import com.harsh.hospitalmanagement.repository.AppointmentSlotRepository;
 import com.harsh.hospitalmanagement.repository.DoctorAvailabilityRepository;
@@ -36,13 +37,26 @@ public class AppointmentSlotService {
         return appointmentSlotRepository.save(slot);
     }
 
-    public List<AppointmentSlot> generateSlots(Long availabilityId) {
+    public List<AppointmentSlot> generateSlots(
+            Long availabilityId,
+            String authenticatedEmail,
+            boolean admin) {
 
         DoctorAvailability availability =
                 doctorAvailabilityRepository.findById(availabilityId)
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Doctor availability not found"));
+
+        if (!admin) {
+            String doctorEmail =
+                    availability.getDoctor().getUser().getEmail();
+
+            if (!doctorEmail.equals(authenticatedEmail)) {
+                throw new ForbiddenException(
+                        "You are not allowed to generate slots for this doctor's availability");
+            }
+        }
 
         LocalTime currentTime = availability.getStartTime();
         LocalTime endTime = availability.getEndTime();
