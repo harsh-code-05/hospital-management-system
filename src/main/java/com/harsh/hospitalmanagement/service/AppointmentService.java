@@ -14,6 +14,7 @@ import com.harsh.hospitalmanagement.repository.AppointmentSlotRepository;
 import com.harsh.hospitalmanagement.repository.DoctorRepository;
 import com.harsh.hospitalmanagement.repository.PatientRepository;
 import org.springframework.stereotype.Service;
+import java.util.List;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -38,11 +39,61 @@ public class AppointmentService {
         this.doctorRepository = doctorRepository;
     }
 
-    public Appointment getAppointmentById(Long id) {
+    public Appointment getAppointmentById(
+            Long id,
+            String authenticatedEmail,
+            String role) {
 
-        return appointmentRepository.findById(id)
+        Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Appointment not found"));
+
+        if (role.equals("ROLE_ADMIN")) {
+            return appointment;
+        }
+
+        String patientEmail = appointment.getPatient()
+                .getUser()
+                .getEmail();
+
+        String doctorEmail = appointment.getDoctor()
+                .getUser()
+                .getEmail();
+
+        boolean patientOwner = patientEmail.equals(authenticatedEmail);
+        boolean doctorOwner = doctorEmail.equals(authenticatedEmail);
+
+        if (!patientOwner && !doctorOwner) {
+            throw new ForbiddenException(
+                    "You are not allowed to access this appointment");
+        }
+
+        return appointment;
+    }
+
+    public List<Appointment> getAppointments(
+            String authenticatedEmail,
+            String role) {
+
+        if (role.equals("ROLE_ADMIN")) {
+            return appointmentRepository
+                    .findAllByOrderByCreatedAtDesc();
+        }
+
+        if (role.equals("ROLE_PATIENT")) {
+            return appointmentRepository
+                    .findByPatient_User_EmailOrderByCreatedAtDesc(
+                            authenticatedEmail);
+        }
+
+        if (role.equals("ROLE_DOCTOR")) {
+            return appointmentRepository
+                    .findByDoctor_User_EmailOrderByCreatedAtDesc(
+                            authenticatedEmail);
+        }
+
+        throw new ForbiddenException(
+                "You are not allowed to access appointments");
     }
 
     @Transactional

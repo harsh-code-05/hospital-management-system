@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/appointments")
 public class AppointmentController {
@@ -33,13 +35,44 @@ public class AppointmentController {
 
         return ResponseEntity.ok(toResponse(appointment));
     }
+    @GetMapping
+    public ResponseEntity<List<AppointmentResponse>> getAppointments(
+            Authentication authentication) {
+
+        String role = authentication.getAuthorities().stream()
+                .findFirst()
+                .map(authority -> authority.getAuthority())
+                .orElse("");
+
+        List<Appointment> appointments =
+                appointmentService.getAppointments(
+                        authentication.getName(),
+                        role
+                );
+
+        List<AppointmentResponse> responses = appointments.stream()
+                .map(this::toResponse)
+                .toList();
+
+        return ResponseEntity.ok(responses);
+    }
 
     @GetMapping("/{id}")
     public ResponseEntity<AppointmentResponse> getAppointmentById(
-            @PathVariable Long id) {
+            @PathVariable Long id,
+            Authentication authentication) {
+
+        String role = authentication.getAuthorities().stream()
+                .findFirst()
+                .map(authority -> authority.getAuthority())
+                .orElse("");
 
         Appointment appointment =
-                appointmentService.getAppointmentById(id);
+                appointmentService.getAppointmentById(
+                        id,
+                        authentication.getName(),
+                        role
+                );
 
         return ResponseEntity.ok(toResponse(appointment));
     }
