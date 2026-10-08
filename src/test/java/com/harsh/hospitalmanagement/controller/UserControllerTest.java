@@ -6,6 +6,8 @@ import com.harsh.hospitalmanagement.entity.User;
 import com.harsh.hospitalmanagement.enums.Role;
 import com.harsh.hospitalmanagement.exception.BadRequestException;
 import com.harsh.hospitalmanagement.exception.GlobalExceptionHandler;
+import com.harsh.hospitalmanagement.service.CustomOidcUserService;
+import com.harsh.hospitalmanagement.service.CustomUserDetailsService;
 import com.harsh.hospitalmanagement.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +16,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import com.harsh.hospitalmanagement.service.CustomUserDetailsService;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -34,6 +35,9 @@ class UserControllerTest {
 
     @MockitoBean
     private CustomUserDetailsService customUserDetailsService;
+
+    @MockitoBean
+    private CustomOidcUserService customOidcUserService;
 
     @Test
     void createUser_shouldReturn200_whenValidRequest() throws Exception {

@@ -1,5 +1,6 @@
 package com.harsh.hospitalmanagement.config;
 
+import com.harsh.hospitalmanagement.service.CustomOidcUserService;
 import com.harsh.hospitalmanagement.service.CustomUserDetailsService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -45,19 +46,35 @@ public class SecurityConfig {
 
         return configuration.getAuthenticationManager();
     }
+
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            SecurityContextRepository securityContextRepository)
+            SecurityContextRepository securityContextRepository,
+            CustomOidcUserService customOidcUserService)
             throws Exception {
 
         http
                 .csrf(csrf -> csrf.disable())
+
                 .securityContext(securityContext ->
                         securityContext
                                 .securityContextRepository(
                                         securityContextRepository))
+
+                .oauth2Login(oauth2 ->
+                        oauth2
+                                .userInfoEndpoint(userInfo ->
+                                        userInfo
+                                                .oidcUserService(
+                                                        customOidcUserService)))
+
                 .authorizeHttpRequests(auth -> auth
+
+                        .requestMatchers(
+                                "/oauth2/**",
+                                "/login/**"
+                        ).permitAll()
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/users"
@@ -67,6 +84,45 @@ public class SecurityConfig {
                                 HttpMethod.POST,
                                 "/api/auth/login"
                         ).permitAll()
+
+                        // Doctor application: public registration (unauthenticated)
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/doctor-applications/register"
+                        ).permitAll()
+
+                        // Doctor application: admin-only review endpoints
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/doctor-applications/pending"
+                        ).hasRole("ADMIN")
+
+                        // Doctor application: authenticated applicant routes (must be before /* wildcard)
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/doctor-applications/me"
+                        ).authenticated()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/doctor-applications/*"
+                        ).hasRole("ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/doctor-applications/*/approve"
+                        ).hasRole("ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/doctor-applications/*/reject"
+                        ).hasRole("ADMIN")
+
+                        // Doctor application: authenticated applicant POST apply
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/doctor-applications/apply"
+                        ).authenticated()
 
                         .requestMatchers(
                                 HttpMethod.POST,
@@ -109,6 +165,8 @@ public class SecurityConfig {
                                 HttpMethod.POST,
                                 "/api/appointments/**"
                         ).hasRole("PATIENT")
+
+
 
                         .requestMatchers("/api/**").authenticated()
 
