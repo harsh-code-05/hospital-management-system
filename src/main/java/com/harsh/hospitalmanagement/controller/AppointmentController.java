@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 
 import java.util.List;
 
@@ -39,10 +40,7 @@ public class AppointmentController {
     public ResponseEntity<List<AppointmentResponse>> getAppointments(
             Authentication authentication) {
 
-        String role = authentication.getAuthorities().stream()
-                .findFirst()
-                .map(authority -> authority.getAuthority())
-                .orElse("");
+        String role = getRole(authentication);
 
         List<Appointment> appointments =
                 appointmentService.getAppointments(
@@ -62,10 +60,7 @@ public class AppointmentController {
             @PathVariable Long id,
             Authentication authentication) {
 
-        String role = authentication.getAuthorities().stream()
-                .findFirst()
-                .map(authority -> authority.getAuthority())
-                .orElse("");
+        String role = getRole(authentication);
 
         Appointment appointment =
                 appointmentService.getAppointmentById(
@@ -75,6 +70,17 @@ public class AppointmentController {
                 );
 
         return ResponseEntity.ok(toResponse(appointment));
+    }
+
+    private String getRole(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(authority ->
+                        authority.equals("ROLE_ADMIN")
+                                || authority.equals("ROLE_PATIENT")
+                                || authority.equals("ROLE_DOCTOR"))
+                .findFirst()
+                .orElse("");
     }
 
     private AppointmentResponse toResponse(Appointment appointment) {
@@ -154,10 +160,7 @@ public class AppointmentController {
             @PathVariable Long id,
             Authentication authentication) {
 
-        String role = authentication.getAuthorities().stream()
-                .findFirst()
-                .map(authority -> authority.getAuthority())
-                .orElse("");
+        String role = getRole(authentication);
 
         Appointment appointment = appointmentService.cancelAppointment(
                 id,
@@ -172,10 +175,7 @@ public class AppointmentController {
             @PathVariable Long id,
             Authentication authentication) {
 
-        String role = authentication.getAuthorities().stream()
-                .findFirst()
-                .map(authority -> authority.getAuthority())
-                .orElse("");
+        String role = getRole(authentication);
 
         Appointment appointment = appointmentService.completeAppointment(
                 id,

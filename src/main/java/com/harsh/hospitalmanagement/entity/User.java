@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import com.harsh.hospitalmanagement.enums.AuthProvider;
 
 
 @Getter
@@ -24,12 +25,16 @@ public class User {
     private String email;
 
 
-    @Column(nullable = false)
+    @Column
     private String password;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
+
+    @Column(unique = true)
+    private String googleId;
+
 
 
 }
