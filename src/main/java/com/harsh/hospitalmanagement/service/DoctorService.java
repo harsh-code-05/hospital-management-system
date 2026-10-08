@@ -10,21 +10,28 @@ import com.harsh.hospitalmanagement.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 
+import com.harsh.hospitalmanagement.dto.DoctorUpdateRequest;
+import com.harsh.hospitalmanagement.enums.AuditEventType;
+import com.harsh.hospitalmanagement.service.AuditLogService;
+
 @Service
 public class DoctorService {
 
     private final DoctorRepository doctorRepository;
     private final UserRepository userRepository;
     private final SpecializationRepository specializationRepository;
+    private final AuditLogService auditLogService;
 
     public DoctorService(
             DoctorRepository doctorRepository,
             UserRepository userRepository,
-            SpecializationRepository specializationRepository) {
+            SpecializationRepository specializationRepository,
+            AuditLogService auditLogService) {
 
         this.doctorRepository = doctorRepository;
         this.userRepository = userRepository;
         this.specializationRepository = specializationRepository;
+        this.auditLogService = auditLogService;
     }
 
     public Doctor getDoctorById(Long id) {
@@ -36,7 +43,7 @@ public class DoctorService {
         return doctorRepository.save(doctor);
     }
 
-    public Doctor createDoctor(DoctorRequest request) {
+    public Doctor createDoctor(DoctorRequest request, String adminEmail) {
 
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -54,6 +61,52 @@ public class DoctorService {
         doctor.setQualification(request.getQualification());
         doctor.setExperience(request.getExperience());
 
-        return doctorRepository.save(doctor);
+        Doctor savedDoctor = doctorRepository.save(doctor);
+
+        auditLogService.logEvent(
+                AuditEventType.ADMIN_CREATED_DOCTOR,
+                adminEmail != null ? adminEmail : "admin",
+                "ROLE_ADMIN",
+                "Doctor",
+                savedDoctor.getId(),
+                "Admin created doctor profile for User ID " + user.getId(),
+                null
+        );
+
+        return savedDoctor;
+    }
+
+    public Doctor createDoctor(DoctorRequest request) {
+        return createDoctor(request, "admin");
+    }
+
+    public Doctor updateDoctor(Long id, DoctorUpdateRequest request, String adminEmail) {
+
+        Doctor doctor = doctorRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found"));
+
+        Specialization specialization =
+                specializationRepository.findById(request.getSpecializationId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Specialization not found"));
+
+        doctor.setSpecialization(specialization);
+        doctor.setFirstName(request.getFirstName());
+        doctor.setLastName(request.getLastName());
+        doctor.setQualification(request.getQualification());
+        doctor.setExperience(request.getExperience());
+
+        Doctor savedDoctor = doctorRepository.save(doctor);
+
+        auditLogService.logEvent(
+                AuditEventType.ADMIN_UPDATED_DOCTOR,
+                adminEmail != null ? adminEmail : "admin",
+                "ROLE_ADMIN",
+                "Doctor",
+                savedDoctor.getId(),
+                "Admin updated doctor profile for Doctor ID " + savedDoctor.getId(),
+                null
+        );
+
+        return savedDoctor;
     }
 }

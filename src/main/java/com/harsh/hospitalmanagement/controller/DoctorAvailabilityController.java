@@ -55,6 +55,27 @@ public class DoctorAvailabilityController {
         return ResponseEntity.ok(toResponse(availability));
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<DoctorAvailabilityResponse> updateAvailability(
+            @PathVariable Long id,
+            @Valid @RequestBody DoctorAvailabilityRequest request,
+            Authentication authentication) {
+
+        DoctorAvailability availability =
+                doctorAvailabilityService.updateAvailability(
+                        id,
+                        request,
+                        authentication.getName(),
+                        authentication.getAuthorities()
+                                .stream()
+                                .anyMatch(authority ->
+                                        authority.getAuthority()
+                                                .equals("ROLE_ADMIN"))
+                );
+
+        return ResponseEntity.ok(toResponse(availability));
+    }
+
     private DoctorAvailabilityResponse toResponse(
             DoctorAvailability availability) {
 

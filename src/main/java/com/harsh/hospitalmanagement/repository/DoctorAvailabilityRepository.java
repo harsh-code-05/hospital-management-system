@@ -25,4 +25,21 @@ public interface DoctorAvailabilityRepository
             @Param("startTime") LocalTime startTime,
             @Param("endTime") LocalTime endTime
     );
+
+    @Query("""
+            SELECT COUNT(a) > 0
+            FROM DoctorAvailability a
+            WHERE a.doctor.id = :doctorId
+            AND a.date = :date
+            AND a.startTime < :endTime
+            AND a.endTime > :startTime
+            AND a.id <> :id
+            """)
+    boolean existsOverlappingAvailabilityExcludingId(
+            @Param("doctorId") Long doctorId,
+            @Param("date") LocalDate date,
+            @Param("startTime") LocalTime startTime,
+            @Param("endTime") LocalTime endTime,
+            @Param("id") Long id
+    );
 }

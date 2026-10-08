@@ -2,6 +2,7 @@ package com.harsh.hospitalmanagement.controller;
 
 import com.harsh.hospitalmanagement.dto.DoctorRequest;
 import com.harsh.hospitalmanagement.dto.DoctorResponse;
+import com.harsh.hospitalmanagement.dto.DoctorUpdateRequest;
 import com.harsh.hospitalmanagement.dto.SpecializationResponse;
 import com.harsh.hospitalmanagement.dto.UserResponse;
 import com.harsh.hospitalmanagement.entity.Doctor;
@@ -10,6 +11,7 @@ import com.harsh.hospitalmanagement.entity.User;
 import com.harsh.hospitalmanagement.service.DoctorService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -24,9 +26,23 @@ public class DoctorController {
 
     @PostMapping
     public ResponseEntity<DoctorResponse> createDoctor(
-            @Valid @RequestBody DoctorRequest request) {
+            @Valid @RequestBody DoctorRequest request,
+            Authentication authentication) {
 
-        Doctor doctor = doctorService.createDoctor(request);
+        String adminEmail = authentication != null ? authentication.getName() : "admin";
+        Doctor doctor = doctorService.createDoctor(request, adminEmail);
+
+        return ResponseEntity.ok(toResponse(doctor));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<DoctorResponse> updateDoctor(
+            @PathVariable Long id,
+            @Valid @RequestBody DoctorUpdateRequest request,
+            Authentication authentication) {
+
+        String adminEmail = authentication != null ? authentication.getName() : "admin";
+        Doctor doctor = doctorService.updateDoctor(id, request, adminEmail);
 
         return ResponseEntity.ok(toResponse(doctor));
     }

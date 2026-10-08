@@ -12,6 +12,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import com.harsh.hospitalmanagement.enums.AuditEventType;
+import com.harsh.hospitalmanagement.service.AuditLogService;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,14 +24,16 @@ public class AuthController {
 
     private final AuthenticationManager authenticationManager;
     private final SecurityContextRepository securityContextRepository;
-
+    private final AuditLogService auditLogService;
 
     public AuthController(
             AuthenticationManager authenticationManager,
-            SecurityContextRepository securityContextRepository) {
+            SecurityContextRepository securityContextRepository,
+            AuditLogService auditLogService) {
 
         this.authenticationManager = authenticationManager;
         this.securityContextRepository = securityContextRepository;
+        this.auditLogService = auditLogService;
     }
 
     @PostMapping("/login")
@@ -37,40 +42,65 @@ public class AuthController {
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
 
-        Authentication authentication =
-                authenticationManager.authenticate(
-                        UsernamePasswordAuthenticationToken.unauthenticated(
-                                request.getEmail(),
-                                request.getPassword()
-                        )
-                );
+        String clientIp = httpRequest.getRemoteAddr();
 
-        SecurityContext securityContext =
-                SecurityContextHolder.createEmptyContext();
+        try {
+            Authentication authentication =
+                    authenticationManager.authenticate(
+                            UsernamePasswordAuthenticationToken.unauthenticated(
+                                    request.getEmail(),
+                                    request.getPassword()
+                            )
+                    );
 
-        securityContext.setAuthentication(authentication);
+            SecurityContext securityContext =
+                    SecurityContextHolder.createEmptyContext();
 
-        SecurityContextHolder.setContext(securityContext);
+            securityContext.setAuthentication(authentication);
 
-        securityContextRepository.saveContext(
-                securityContext,
-                httpRequest,
-                httpResponse
-        );
+            SecurityContextHolder.setContext(securityContext);
 
-        String role = authentication.getAuthorities()
-                .stream()
-                .findFirst()
-                .map(authority ->
-                        authority.getAuthority().replace("ROLE_", ""))
-                .orElse("");
+            securityContextRepository.saveContext(
+                    securityContext,
+                    httpRequest,
+                    httpResponse
+            );
 
-        LoginResponse response = new LoginResponse(
-                "Login successful",
-                authentication.getName(),
-                role
-        );
+            String role = authentication.getAuthorities()
+                    .stream()
+                    .findFirst()
+                    .map(authority ->
+                            authority.getAuthority().replace("ROLE_", ""))
+                    .orElse("");
 
-        return ResponseEntity.ok(response);
+            auditLogService.logEvent(
+                    AuditEventType.LOGIN_SUCCESS,
+                    authentication.getName(),
+                    "ROLE_" + role,
+                    "User",
+                    null,
+                    "User logged in successfully",
+                    clientIp
+            );
+
+            LoginResponse response = new LoginResponse(
+                    "Login successful",
+                    authentication.getName(),
+                    role
+            );
+
+            return ResponseEntity.ok(response);
+        } catch (AuthenticationException ex) {
+            auditLogService.logEvent(
+                    AuditEventType.LOGIN_FAILURE,
+                    request.getEmail(),
+                    null,
+                    "User",
+                    null,
+                    "Failed login attempt: " + ex.getMessage(),
+                    clientIp
+            );
+            throw ex;
+        }
     }
 }

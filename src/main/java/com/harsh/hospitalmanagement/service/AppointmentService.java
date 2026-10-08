@@ -19,6 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
+import com.harsh.hospitalmanagement.enums.AuditEventType;
+import com.harsh.hospitalmanagement.service.AuditLogService;
+
 @Service
 public class AppointmentService {
 
@@ -26,17 +29,20 @@ public class AppointmentService {
     private final AppointmentSlotRepository appointmentSlotRepository;
     private final PatientRepository patientRepository;
     private final DoctorRepository doctorRepository;
+    private final AuditLogService auditLogService;
 
     public AppointmentService(
             AppointmentRepository appointmentRepository,
             AppointmentSlotRepository appointmentSlotRepository,
             PatientRepository patientRepository,
-            DoctorRepository doctorRepository) {
+            DoctorRepository doctorRepository,
+            AuditLogService auditLogService) {
 
         this.appointmentRepository = appointmentRepository;
         this.appointmentSlotRepository = appointmentSlotRepository;
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
+        this.auditLogService = auditLogService;
     }
 
     public Appointment getAppointmentById(
@@ -146,7 +152,19 @@ public class AppointmentService {
         appointment.setStatus(AppointmentStatus.CONFIRMED);
         appointment.setCreatedAt(LocalDateTime.now());
 
-        return appointmentRepository.save(appointment);
+        Appointment savedAppointment = appointmentRepository.save(appointment);
+
+        auditLogService.logEvent(
+                AuditEventType.PATIENT_BOOKED_APPOINTMENT,
+                authenticatedEmail,
+                "ROLE_PATIENT",
+                "Appointment",
+                savedAppointment.getId(),
+                "Booked appointment ID " + savedAppointment.getId() + " with Doctor ID " + doctor.getId() + " for Slot ID " + slot.getId(),
+                null
+        );
+
+        return savedAppointment;
     }
     @Transactional
     public Appointment cancelAppointment(
@@ -190,7 +208,19 @@ public class AppointmentService {
         appointment.setStatus(AppointmentStatus.CANCELLED);
         slot.setStatus(SlotStatus.AVAILABLE);
 
-        return appointmentRepository.save(appointment);
+        Appointment savedAppointment = appointmentRepository.save(appointment);
+
+        auditLogService.logEvent(
+                AuditEventType.PATIENT_CANCELLED_APPOINTMENT,
+                authenticatedEmail,
+                role,
+                "Appointment",
+                savedAppointment.getId(),
+                "Cancelled appointment ID " + savedAppointment.getId(),
+                null
+        );
+
+        return savedAppointment;
     }
 
     @Transactional

@@ -125,8 +125,7 @@ public class SecurityConfig {
                         ).authenticated()
 
                         .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/admin/users"
+                                "/api/admin/**"
                         ).hasRole("ADMIN")
 
                         .requestMatchers(
@@ -140,12 +139,22 @@ public class SecurityConfig {
                         ).hasRole("ADMIN")
 
                         .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/doctors/**"
+                        ).hasRole("ADMIN")
+
+                        .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/patients/**"
                         ).hasAnyRole("PATIENT", "ADMIN")
 
                         .requestMatchers(
                                 HttpMethod.POST,
+                                "/api/doctor-availability/**"
+                        ).hasAnyRole("DOCTOR", "ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.PUT,
                                 "/api/doctor-availability/**"
                         ).hasAnyRole("DOCTOR", "ADMIN")
 
