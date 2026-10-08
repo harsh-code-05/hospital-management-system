@@ -99,4 +99,107 @@ class UserServiceTest {
         verify(userRepository, never()).existsByEmail(anyString());
         verify(userRepository, never()).save(any(User.class));
     }
+
+    @Test
+    void findOrCreateGoogleUser_shouldCreateNewPatientUser_whenUserDoesNotExist() {
+        String email = "newgoogle@example.com";
+        String googleId = "google-sub-123";
+
+        when(userRepository.findByGoogleId(googleId)).thenReturn(java.util.Optional.empty());
+        when(userRepository.findByEmail(email)).thenReturn(java.util.Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User user = userService.findOrCreateGoogleUser(email, googleId);
+
+        assertThat(user).isNotNull();
+        assertThat(user.getEmail()).isEqualTo(email);
+        assertThat(user.getGoogleId()).isEqualTo(googleId);
+        assertThat(user.getRole()).isEqualTo(Role.PATIENT);
+        assertThat(user.getPassword()).isNull();
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        User saved = captor.getValue();
+        assertThat(saved.getEmail()).isEqualTo(email);
+        assertThat(saved.getRole()).isEqualTo(Role.PATIENT);
+        assertThat(saved.getGoogleId()).isEqualTo(googleId);
+    }
+
+    @Test
+    void findOrCreateGoogleUser_shouldReturnExistingUserWithoutChangingRole_whenGoogleIdMatches() {
+        String email = "doctor@example.com";
+        String googleId = "google-sub-doctor";
+
+        User existing = new User();
+        existing.setId(5L);
+        existing.setEmail(email);
+        existing.setRole(Role.DOCTOR);
+        existing.setGoogleId(googleId);
+
+        when(userRepository.findByGoogleId(googleId)).thenReturn(java.util.Optional.of(existing));
+
+        User user = userService.findOrCreateGoogleUser(email, googleId);
+
+        assertThat(user).isSameAs(existing);
+        assertThat(user.getRole()).isEqualTo(Role.DOCTOR);
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void findOrCreateGoogleUser_shouldLinkGoogleIdPreservingRole_whenExistingUserHasNullGoogleId() {
+        String email = "staff@example.com";
+        String googleId = "google-sub-link";
+
+        User existing = new User();
+        existing.setId(6L);
+        existing.setEmail(email);
+        existing.setRole(Role.ADMIN);
+        existing.setGoogleId(null);
+
+        when(userRepository.findByGoogleId(googleId)).thenReturn(java.util.Optional.empty());
+        when(userRepository.findByEmail(email)).thenReturn(java.util.Optional.of(existing));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User user = userService.findOrCreateGoogleUser(email, googleId);
+
+        assertThat(user.getGoogleId()).isEqualTo(googleId);
+        assertThat(user.getRole()).isEqualTo(Role.ADMIN);
+
+        verify(userRepository).save(existing);
+        assertThat(existing.getGoogleId()).isEqualTo(googleId);
+        assertThat(existing.getRole()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    void findOrCreateGoogleUser_shouldThrowBadRequestException_whenExistingUserHasDifferentGoogleId() {
+        String email = "conflict@example.com";
+        String incomingGoogleId = "google-sub-new";
+        String existingGoogleId = "google-sub-existing";
+
+        User existing = new User();
+        existing.setId(7L);
+        existing.setEmail(email);
+        existing.setRole(Role.PATIENT);
+        existing.setGoogleId(existingGoogleId);
+
+        when(userRepository.findByGoogleId(incomingGoogleId)).thenReturn(java.util.Optional.empty());
+        when(userRepository.findByEmail(email)).thenReturn(java.util.Optional.of(existing));
+
+        assertThatThrownBy(() -> userService.findOrCreateGoogleUser(email, incomingGoogleId))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessage("Account is already linked to a different Google account");
+
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void findOrCreateGoogleUser_shouldThrowBadRequestException_whenEmailOrGoogleIdIsBlank() {
+        assertThatThrownBy(() -> userService.findOrCreateGoogleUser("", "google-id"))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessage("Email is required");
+
+        assertThatThrownBy(() -> userService.findOrCreateGoogleUser("test@example.com", "   "))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessage("Google ID is required");
+    }
 }

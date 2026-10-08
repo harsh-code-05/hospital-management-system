@@ -1,10 +1,13 @@
 package com.harsh.hospitalmanagement.service;
 
 import com.harsh.hospitalmanagement.entity.User;
+import com.harsh.hospitalmanagement.exception.BadRequestException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
@@ -19,12 +22,19 @@ public class CustomOidcUserService
         implements org.springframework.security.oauth2.client.userinfo.OAuth2UserService<
         OidcUserRequest, OidcUser> {
 
-    private final OidcUserService delegate;
+    private final OAuth2UserService<OidcUserRequest, OidcUser> delegate;
     private final UserService userService;
 
+    @Autowired
     public CustomOidcUserService(UserService userService) {
-        this.delegate = new OidcUserService();
+        this(userService, new OidcUserService());
+    }
+
+    public CustomOidcUserService(
+            UserService userService,
+            OAuth2UserService<OidcUserRequest, OidcUser> delegate) {
         this.userService = userService;
+        this.delegate = delegate;
     }
 
     @Override
@@ -46,10 +56,35 @@ public class CustomOidcUserService
             throw new OAuth2AuthenticationException(error);
         }
 
-        User user = userService.findOrCreateGoogleUser(
-                email,
-                googleId
-        );
+        Boolean emailVerified = oidcUser.getEmailVerified();
+        if (emailVerified == null && oidcUser.getUserInfo() != null) {
+            emailVerified = oidcUser.getUserInfo().getEmailVerified();
+        }
+        if (Boolean.FALSE.equals(emailVerified)) {
+            OAuth2Error error = new OAuth2Error(
+                    "unverified_email",
+                    "Google email is not verified",
+                    null
+            );
+
+            throw new OAuth2AuthenticationException(error);
+        }
+
+        User user;
+        try {
+            user = userService.findOrCreateGoogleUser(
+                    email,
+                    googleId
+            );
+        } catch (BadRequestException ex) {
+            OAuth2Error error = new OAuth2Error(
+                    "account_link_conflict",
+                    ex.getMessage(),
+                    null
+            );
+
+            throw new OAuth2AuthenticationException(error, ex);
+        }
 
         Set<GrantedAuthority> authorities =
                 new HashSet<>(oidcUser.getAuthorities());

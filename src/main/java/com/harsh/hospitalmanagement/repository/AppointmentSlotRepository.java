@@ -7,13 +7,19 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.harsh.hospitalmanagement.enums.SlotStatus;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.Optional;
 
 
 public interface AppointmentSlotRepository
         extends JpaRepository<AppointmentSlot, Long> {
+
+    List<AppointmentSlot> findByDoctor_IdAndStatus(Long doctorId, SlotStatus status);
+
+    List<AppointmentSlot> findByDoctor_IdAndDateAndStatus(Long doctorId, LocalDate date, SlotStatus status);
 
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

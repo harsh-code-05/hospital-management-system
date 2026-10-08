@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -26,7 +27,19 @@ public class AppointmentSlotController {
         this.appointmentSlotService = appointmentSlotService;
     }
 
+    @GetMapping("/available")
+    public ResponseEntity<List<AppointmentSlotResponse>> getAvailableSlots(
+            @RequestParam Long doctorId,
+            @RequestParam(required = false) LocalDate date) {
 
+        List<AppointmentSlot> slots = appointmentSlotService.getAvailableSlots(doctorId, date);
+
+        List<AppointmentSlotResponse> responses = slots.stream()
+                .map(this::toResponse)
+                .toList();
+
+        return ResponseEntity.ok(responses);
+    }
 
     @GetMapping("/{id}")
     public ResponseEntity<AppointmentSlotResponse> getSlotById(

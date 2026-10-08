@@ -9,6 +9,7 @@ import com.harsh.hospitalmanagement.repository.AppointmentSlotRepository;
 import com.harsh.hospitalmanagement.repository.DoctorAvailabilityRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +26,15 @@ public class AppointmentSlotService {
 
         this.appointmentSlotRepository = appointmentSlotRepository;
         this.doctorAvailabilityRepository = doctorAvailabilityRepository;
+    }
+
+    public List<AppointmentSlot> getAvailableSlots(Long doctorId, LocalDate date) {
+        if (date != null) {
+            return appointmentSlotRepository.findByDoctor_IdAndDateAndStatus(
+                    doctorId, date, SlotStatus.AVAILABLE);
+        }
+        return appointmentSlotRepository.findByDoctor_IdAndStatus(
+                doctorId, SlotStatus.AVAILABLE);
     }
 
     public AppointmentSlot getSlotById(Long id) {

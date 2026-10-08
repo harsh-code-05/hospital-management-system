@@ -5,6 +5,8 @@ import com.harsh.hospitalmanagement.service.SpecializationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/specializations")
 public class SpecializationController {
@@ -23,6 +25,11 @@ public class SpecializationController {
                 specializationService.saveSpecialization(specialization);
 
         return ResponseEntity.ok(savedSpecialization);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<Specialization>> getAllSpecializations() {
+        return ResponseEntity.ok(specializationService.getAllSpecializations());
     }
 
     @GetMapping("/{id}")

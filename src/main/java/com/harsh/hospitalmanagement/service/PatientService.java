@@ -73,4 +73,9 @@ public class PatientService {
 
         return patient;
     }
+
+    public Patient getPatientByEmail(String email) {
+        return patientRepository.findByUser_Email(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient profile not found for user"));
+    }
 }

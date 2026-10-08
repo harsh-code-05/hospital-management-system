@@ -14,6 +14,8 @@ import com.harsh.hospitalmanagement.dto.DoctorUpdateRequest;
 import com.harsh.hospitalmanagement.enums.AuditEventType;
 import com.harsh.hospitalmanagement.service.AuditLogService;
 
+import java.util.List;
+
 @Service
 public class DoctorService {
 
@@ -32,6 +34,10 @@ public class DoctorService {
         this.userRepository = userRepository;
         this.specializationRepository = specializationRepository;
         this.auditLogService = auditLogService;
+    }
+
+    public List<Doctor> getAllDoctors() {
+        return doctorRepository.findAll();
     }
 
     public Doctor getDoctorById(Long id) {

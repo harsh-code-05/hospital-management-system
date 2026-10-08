@@ -85,6 +85,21 @@ public class SecurityConfig {
                                 "/api/auth/login"
                         ).permitAll()
 
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/auth/me"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/auth/logout"
+                        ).authenticated()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/specializations"
+                        ).permitAll()
+
                         // Doctor application: public registration (unauthenticated)
                         .requestMatchers(
                                 HttpMethod.POST,

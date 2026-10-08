@@ -14,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/doctors")
 public class DoctorController {
@@ -45,6 +47,15 @@ public class DoctorController {
         Doctor doctor = doctorService.updateDoctor(id, request, adminEmail);
 
         return ResponseEntity.ok(toResponse(doctor));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<DoctorResponse>> getAllDoctors() {
+        List<DoctorResponse> responses = doctorService.getAllDoctors()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+        return ResponseEntity.ok(responses);
     }
 
     @GetMapping("/{id}")

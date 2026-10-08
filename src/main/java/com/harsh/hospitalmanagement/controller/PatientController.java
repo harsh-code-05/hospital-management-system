@@ -30,6 +30,15 @@ public class PatientController {
         return ResponseEntity.ok(toResponse(patient));
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<PatientResponse> getMyPatientProfile(
+            Authentication authentication) {
+
+        Patient patient = patientService.getPatientByEmail(authentication.getName());
+
+        return ResponseEntity.ok(toResponse(patient));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<PatientResponse> getPatientById(
             @PathVariable Long id,

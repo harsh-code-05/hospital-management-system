@@ -81,4 +81,42 @@ public class UserService {
 
         return userRepository.save(user);
     }
+
+    public User findOrCreateGoogleUser(
+            String email,
+            String googleId) {
+
+        if (email == null || email.isBlank()) {
+            throw new BadRequestException("Email is required");
+        }
+        if (googleId == null || googleId.isBlank()) {
+            throw new BadRequestException("Google ID is required");
+        }
+
+        return userRepository.findByGoogleId(googleId)
+                .orElseGet(() -> {
+
+                    User existingUser = userRepository
+                            .findByEmail(email)
+                            .orElse(null);
+
+                    if (existingUser != null) {
+                        if (existingUser.getGoogleId() != null && !existingUser.getGoogleId().equals(googleId)) {
+                            throw new BadRequestException(
+                                    "Account is already linked to a different Google account");
+                        }
+                        existingUser.setGoogleId(googleId);
+                        return userRepository.save(existingUser);
+                    }
+
+                    User user = new User();
+
+                    user.setEmail(email);
+                    user.setPassword(null);
+                    user.setRole(Role.PATIENT);
+                    user.setGoogleId(googleId);
+
+                    return userRepository.save(user);
+                });
+    }
 }
