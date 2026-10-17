@@ -2,6 +2,7 @@ package com.harsh.hospitalmanagement.config;
 
 import com.harsh.hospitalmanagement.service.CustomOidcUserService;
 import com.harsh.hospitalmanagement.service.CustomUserDetailsService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -51,8 +52,11 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             SecurityContextRepository securityContextRepository,
-            CustomOidcUserService customOidcUserService)
+            CustomOidcUserService customOidcUserService,
+            @Value("${app.frontend.url:http://localhost:5173/}") String frontendUrl)
             throws Exception {
+
+        String targetUrl = frontendUrl.endsWith("/") ? frontendUrl : frontendUrl + "/";
 
         http
                 .csrf(csrf -> csrf.disable())
@@ -67,7 +71,9 @@ public class SecurityConfig {
                                 .userInfoEndpoint(userInfo ->
                                         userInfo
                                                 .oidcUserService(
-                                                        customOidcUserService)))
+                                                        customOidcUserService))
+                                .defaultSuccessUrl(targetUrl, true)
+                                .failureUrl(targetUrl + "login?error"))
 
                 .authorizeHttpRequests(auth -> auth
 

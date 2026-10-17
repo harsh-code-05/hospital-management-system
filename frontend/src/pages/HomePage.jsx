@@ -1,119 +1,80 @@
-import { useState } from 'react'
-import heroImg from '../assets/hero.png'
-import reactLogo from '../assets/react.svg'
-import viteLogo from '../assets/vite.svg'
+import { Link } from 'react-router-dom';
+import { useAuth } from '../context/useAuth';
 
 export default function HomePage() {
-  const [count, setCount] = useState(0)
+  const { user, loading } = useAuth();
+
+  const getDashboardPath = (role) => {
+    if (!role || typeof role !== 'string') return '/patient';
+    const normalized = role.replace(/^ROLE_/i, '').toUpperCase();
+    if (normalized === 'DOCTOR') return '/doctor';
+    if (normalized === 'ADMIN') return '/admin';
+    return '/patient';
+  };
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
+    <div style={{ padding: '60px 24px', maxWidth: '640px', margin: '0 auto', textAlign: 'center' }}>
+      <h1 style={{ fontSize: '36px', marginBottom: '12px' }}>Hospital Management System</h1>
+      <p style={{ color: 'var(--text)', fontSize: '16px', marginBottom: '32px' }}>
+        Welcome to the Hospital Management System portal.
+      </p>
+
+      {!loading && user ? (
+        <div style={{ marginBottom: '32px' }}>
+          <p style={{ marginBottom: '16px', color: 'var(--text-h)' }}>
+            Signed in as <strong>{user.email}</strong> ({user.role})
           </p>
+          <Link
+            to={getDashboardPath(user.role)}
+            style={{
+              display: 'inline-block',
+              padding: '12px 24px',
+              background: 'var(--accent)',
+              color: '#fff',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: 600,
+            }}
+          >
+            Go to Dashboard
+          </Link>
         </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      ) : (
+        <div style={{ marginBottom: '32px' }}>
+          <Link
+            to="/login"
+            style={{
+              display: 'inline-block',
+              padding: '12px 28px',
+              background: 'var(--accent)',
+              color: '#fff',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: 600,
+              fontSize: '16px',
+            }}
+          >
+            Sign In
+          </Link>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      )}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '24px', marginTop: '24px' }}>
+        <h2 style={{ fontSize: '18px', marginBottom: '12px' }}>Portals</h2>
+        <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <Link to="/patient" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+            Patient Portal
+          </Link>
+          <span style={{ color: 'var(--border)' }}>•</span>
+          <Link to="/doctor" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+            Doctor Portal
+          </Link>
+          <span style={{ color: 'var(--border)' }}>•</span>
+          <Link to="/admin" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+            Admin Portal
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
 }
