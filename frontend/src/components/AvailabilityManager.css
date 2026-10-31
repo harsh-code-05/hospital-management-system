@@ -1,0 +1,424 @@
+/* AvailabilityManager.css
+   Conforms to index.css design tokens and supports light/dark themes
+*/
+
+.availability-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: 100%;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+/* Card Sections */
+.am-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.am-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.am-card-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-h);
+  margin: 0 0 4px 0;
+}
+
+.am-card-subtitle {
+  font-size: 14px;
+  color: var(--text);
+  margin: 0;
+}
+
+/* Form Styles */
+.am-form-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.am-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.am-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.am-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.am-input,
+.am-select {
+  padding: 10px 14px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-h);
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.am-input:focus,
+.am-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+
+.am-input:disabled,
+.am-select:disabled {
+  opacity: 0.65;
+  background: var(--code-bg);
+  cursor: not-allowed;
+}
+
+.am-field-hint {
+  font-size: 12px;
+  color: var(--text);
+}
+
+/* Buttons */
+.am-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.am-btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.am-btn-primary:hover:not(:disabled) {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.am-btn-secondary {
+  background: var(--bg);
+  color: var(--text-h);
+  border-color: var(--border);
+}
+
+.am-btn-secondary:hover:not(:disabled) {
+  background: var(--social-bg);
+  border-color: var(--accent-border);
+}
+
+.am-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Alerts */
+.am-alert {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  word-break: break-word;
+}
+
+.am-alert-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #dc2626;
+}
+
+.am-alert-success {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #16a34a;
+}
+
+.am-alert-warning {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #b45309;
+}
+
+.am-alert-info {
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+}
+
+@media (prefers-color-scheme: dark) {
+  .am-alert-error {
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.4);
+  }
+  .am-alert-success {
+    color: #4ade80;
+    border-color: rgba(34, 197, 94, 0.4);
+  }
+  .am-alert-warning {
+    color: #fbbf24;
+    border-color: rgba(245, 158, 11, 0.4);
+  }
+}
+
+/* Summary Metrics */
+.am-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.am-metric-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.am-metric-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text);
+  letter-spacing: 0.5px;
+}
+
+.am-metric-val {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+/* Availability Cards List */
+.am-avail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.am-avail-item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  transition: border-color 0.2s;
+}
+
+.am-avail-item:hover {
+  border-color: var(--accent-border);
+}
+
+.am-avail-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.am-avail-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.am-avail-meta {
+  font-size: 13px;
+  color: var(--text);
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.am-avail-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Slots Schedule */
+.am-schedule-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.am-schedule-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.am-slots-date-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.am-slots-date-group:last-child {
+  border-bottom: none;
+}
+
+.am-date-heading {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.am-slots-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.am-slot-pill {
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+
+.am-slot-available {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #15803d;
+}
+
+@media (prefers-color-scheme: dark) {
+  .am-slot-available {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.4);
+    color: #4ade80;
+  }
+}
+
+.am-slot-booked {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #1d4ed8;
+}
+
+@media (prefers-color-scheme: dark) {
+  .am-slot-booked {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.4);
+    color: #60a5fa;
+  }
+}
+
+.am-pill-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.4px;
+}
+
+.am-slot-available .am-pill-badge {
+  background: rgba(34, 197, 94, 0.2);
+}
+
+.am-slot-booked .am-pill-badge {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+/* Empty State */
+.am-empty {
+  padding: 32px 16px;
+  text-align: center;
+  background: var(--code-bg);
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  color: var(--text);
+  font-size: 14px;
+}
+
+/* Badges */
+.am-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  display: inline-block;
+}
+
+.am-badge-success {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.am-badge-pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  .am-badge-success {
+    color: #4ade80;
+  }
+  .am-badge-pending {
+    color: #fbbf24;
+  }
+}
