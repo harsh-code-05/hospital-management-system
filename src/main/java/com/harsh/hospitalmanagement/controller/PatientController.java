@@ -1,5 +1,6 @@
 package com.harsh.hospitalmanagement.controller;
 
+import com.harsh.hospitalmanagement.dto.PatientProfileRequest;
 import com.harsh.hospitalmanagement.dto.PatientRequest;
 import com.harsh.hospitalmanagement.dto.PatientResponse;
 import com.harsh.hospitalmanagement.dto.UserResponse;
@@ -19,6 +20,19 @@ public class PatientController {
 
     public PatientController(PatientService patientService) {
         this.patientService = patientService;
+    }
+
+    @PostMapping("/me")
+    public ResponseEntity<PatientResponse> createMyPatientProfile(
+            @Valid @RequestBody PatientProfileRequest request,
+            Authentication authentication) {
+
+        Patient patient = patientService.createMyPatientProfile(
+                authentication.getName(),
+                request
+        );
+
+        return ResponseEntity.ok(toResponse(patient));
     }
 
     @PostMapping

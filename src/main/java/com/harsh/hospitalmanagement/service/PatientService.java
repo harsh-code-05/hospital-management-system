@@ -1,14 +1,18 @@
 package com.harsh.hospitalmanagement.service;
 
 
+import com.harsh.hospitalmanagement.dto.PatientProfileRequest;
 import com.harsh.hospitalmanagement.dto.PatientRequest;
 import com.harsh.hospitalmanagement.entity.Patient;
 import com.harsh.hospitalmanagement.entity.User;
+import com.harsh.hospitalmanagement.enums.Role;
+import com.harsh.hospitalmanagement.exception.ConflictException;
 import com.harsh.hospitalmanagement.exception.ForbiddenException;
+import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 import com.harsh.hospitalmanagement.repository.PatientRepository;
 import com.harsh.hospitalmanagement.repository.UserRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 
 @Service
 public class PatientService {
@@ -77,5 +81,32 @@ public class PatientService {
     public Patient getPatientByEmail(String email) {
         return patientRepository.findByUser_Email(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient profile not found for user"));
+    }
+
+    public Patient createMyPatientProfile(String email, PatientProfileRequest request) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (user.getRole() != Role.PATIENT) {
+            throw new ForbiddenException("Only users with role PATIENT can create a patient profile");
+        }
+
+        if (patientRepository.findByUser_Email(email).isPresent()) {
+            throw new ConflictException("Patient profile already exists for this user");
+        }
+
+        Patient patient = new Patient();
+        patient.setUser(user);
+        patient.setFirstName(request.getFirstName().trim());
+        patient.setLastName(request.getLastName().trim());
+        patient.setDateOfBirth(request.getDateOfBirth());
+        patient.setGender(request.getGender().trim());
+        patient.setPhone(request.getPhone().trim());
+
+        try {
+            return patientRepository.save(patient);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ConflictException("Patient profile already exists for this user");
+        }
     }
 }
