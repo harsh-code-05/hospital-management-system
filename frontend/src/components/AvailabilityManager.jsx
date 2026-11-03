@@ -176,7 +176,9 @@ export default function AvailabilityManager({
 
         if (apptsRes && Array.isArray(apptsRes.data)) {
           const docAppts = apptsRes.data.filter(
-            (a) => String(a.doctor?.id) === String(activeDoctorId) && a.status === 'CONFIRMED',
+            (a) =>
+              String(a.doctor?.id) === String(activeDoctorId) &&
+              ['CONFIRMED', 'COMPLETED'].includes(a.status),
           );
           setBookedAppointments(docAppts);
           setAppointmentsSupported(true);
@@ -348,11 +350,24 @@ export default function AvailabilityManager({
     }
     const found = doctorsList.find((d) => String(d.id) === String(activeDoctorId));
     if (found) {
-      const spec = found.specialization?.name ? ` - ${found.specialization.name}` : '';
-      return `Dr. ${found.firstName} ${found.lastName} (ID: ${found.id}${spec})`;
+      return `Dr. ${found.firstName} ${found.lastName} (ID: ${found.id})`;
     }
     return activeDoctorId ? `Doctor ID: ${activeDoctorId}` : 'None Selected';
   }, [isDoctorMode, doctor, doctorId, doctorsList, activeDoctorId]);
+
+  // Selected doctor object for displaying specialization & qualification
+  const selectedDoctorObj = useMemo(() => {
+    if (isDoctorMode) {
+      if (doctor && typeof doctor === 'object') {
+        return doctor;
+      }
+      return null;
+    }
+    return doctorsList.find((d) => String(d.id) === String(activeDoctorId)) || null;
+  }, [isDoctorMode, doctor, doctorsList, activeDoctorId]);
+
+  const specializationName = selectedDoctorObj?.specialization?.name || '';
+  const qualification = selectedDoctorObj?.qualification || '';
 
   // Aggregate slots by date for schedule display
   const scheduleByDate = useMemo(() => {
@@ -393,7 +408,12 @@ export default function AvailabilityManager({
 
   // Total summary counts
   const totalAvailableCount = availableSlots.length;
-  const totalBookedCount = appointmentsSupported ? bookedAppointments.length : 0;
+  const totalConfirmedCount = appointmentsSupported
+    ? bookedAppointments.filter((appt) => appt.status === 'CONFIRMED').length
+    : 0;
+  const totalCompletedCount = appointmentsSupported
+    ? bookedAppointments.filter((appt) => appt.status === 'COMPLETED').length
+    : 0;
 
   const handleManualRefresh = useCallback(() => {
     setRefreshIndex((idx) => idx + 1);
@@ -416,7 +436,7 @@ export default function AvailabilityManager({
         </div>
 
         {/* Doctor Selector */}
-        <div className="am-form-field">
+        <div className="am-form-field am-doctor-selector-field">
           <label className="am-label" htmlFor="am-doctor-select">
             Selected Doctor:
           </label>
@@ -424,18 +444,20 @@ export default function AvailabilityManager({
             <input
               id="am-doctor-select"
               type="text"
-              className="am-input"
+              className="am-input am-doctor-select"
               value={activeDoctorInfo}
               disabled
               readOnly
+              style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
             />
           ) : (
             <select
               id="am-doctor-select"
-              className="am-select"
+              className="am-select am-doctor-select"
               value={selectedDoctorId}
               onChange={(e) => setSelectedDoctorId(e.target.value)}
               disabled={doctorsLoading || formSubmitting}
+              style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
             >
               {doctorsLoading ? (
                 <option value="">Loading doctors...</option>
@@ -444,13 +466,32 @@ export default function AvailabilityManager({
               ) : (
                 doctorsList.map((doc) => (
                   <option key={doc.id} value={doc.id}>
-                    Dr. {doc.firstName} {doc.lastName} (ID: {doc.id}) —{' '}
-                    {doc.specialization?.name || 'General'}
-                    {doc.qualification ? ` (${doc.qualification})` : ''}
+                    Dr. {doc.firstName} {doc.lastName} (ID: {doc.id})
                   </option>
                 ))
               )}
             </select>
+          )}
+
+          {/* Doctor Specialization & Qualification readable text */}
+          {(specializationName || qualification) && (
+            <div className="am-doctor-details">
+              {specializationName && (
+                <span className="am-doctor-spec">
+                  <span className="am-doctor-detail-label">Specialization:</span>{' '}
+                  <span className="am-doctor-detail-val">{specializationName}</span>
+                </span>
+              )}
+              {specializationName && qualification && (
+                <span className="am-doctor-detail-divider">•</span>
+              )}
+              {qualification && (
+                <span className="am-doctor-qual">
+                  <span className="am-doctor-detail-label">Qualification:</span>{' '}
+                  <span className="am-doctor-detail-val">{qualification}</span>
+                </span>
+              )}
+            </div>
           )}
         </div>
 
@@ -512,13 +553,15 @@ export default function AvailabilityManager({
           {/* Form Feedback */}
           {formError && (
             <div className="am-alert am-alert-error" role="alert">
-              <strong>Error:</strong> {formError}
+              <strong className="am-alert-label">Error:</strong>{' '}
+              <span className="am-alert-message">{formError}</span>
             </div>
           )}
 
           {formSuccess && (
             <div className="am-alert am-alert-success" role="alert">
-              <strong>Success:</strong> {formSuccess}
+              <strong className="am-alert-label">Success:</strong>{' '}
+              <span className="am-alert-message">{formSuccess}</span>
             </div>
           )}
 
@@ -548,13 +591,15 @@ export default function AvailabilityManager({
 
           {generationError && (
             <div className="am-alert am-alert-error" role="alert">
-              <strong>Generation Error:</strong> {generationError}
+              <strong className="am-alert-label">Generation Error:</strong>{' '}
+              <span className="am-alert-message">{generationError}</span>
             </div>
           )}
 
           {generationSuccess && (
             <div className="am-alert am-alert-success" role="alert">
-              <strong>Success:</strong> {generationSuccess}
+              <strong className="am-alert-label">Success:</strong>{' '}
+              <span className="am-alert-message">{generationSuccess}</span>
             </div>
           )}
 
@@ -613,7 +658,7 @@ export default function AvailabilityManager({
           <div>
             <h2 className="am-card-title">Appointment Slot Schedule</h2>
             <p className="am-card-subtitle">
-              Overview of available and booked slots for {activeDoctorInfo}.
+              Overview of available, confirmed, and completed slots for {activeDoctorInfo}.
             </p>
           </div>
           <button
@@ -634,10 +679,16 @@ export default function AvailabilityManager({
           </div>
 
           {appointmentsSupported ? (
-            <div className="am-metric-card">
-              <span className="am-metric-label">Confirmed Bookings</span>
-              <span className="am-metric-val">{totalBookedCount}</span>
-            </div>
+            <>
+              <div className="am-metric-card">
+                <span className="am-metric-label">Confirmed Bookings</span>
+                <span className="am-metric-val">{totalConfirmedCount}</span>
+              </div>
+              <div className="am-metric-card">
+                <span className="am-metric-label">Completed Appointments</span>
+                <span className="am-metric-val">{totalCompletedCount}</span>
+              </div>
+            </>
           ) : (
             <div className="am-metric-card">
               <span className="am-metric-label">Schedule Mode</span>
@@ -688,7 +739,8 @@ export default function AvailabilityManager({
           <div className="am-empty">Loading appointment slots...</div>
         ) : scheduleError ? (
           <div className="am-alert am-alert-error" role="alert">
-            {scheduleError}
+            <strong className="am-alert-label">Error:</strong>{' '}
+            <span className="am-alert-message">{scheduleError}</span>
           </div>
         ) : scheduleByDate.length === 0 ? (
           <div className="am-empty">
@@ -711,7 +763,7 @@ export default function AvailabilityManager({
                   >
                     ({group.available.length} available
                     {appointmentsSupported
-                      ? `, ${group.booked.length} booked`
+                      ? `, ${group.booked.length} occupied`
                       : ''}
                     )
                   </span>
@@ -732,24 +784,34 @@ export default function AvailabilityManager({
                     </div>
                   ))}
 
-                  {/* Render Booked Slots (from actual appointment data) */}
-                  {group.booked.map((appt) => (
-                    <div
-                      key={`booked-${appt.id}`}
-                      className="am-slot-pill am-slot-booked"
-                      title={`Appointment #${appt.id} • Patient: ${
-                        appt.patient
-                          ? `${appt.patient.firstName} ${appt.patient.lastName}`
-                          : 'Patient'
-                      }${appt.reason ? ` • Reason: ${appt.reason}` : ''}`}
-                    >
-                      <span>
-                        {formatTime(appt.slot?.startTime)} –{' '}
-                        {formatTime(appt.slot?.endTime)}
-                      </span>
-                      <span className="am-pill-badge">Booked</span>
-                    </div>
-                  ))}
+                  {/* Render occupied slots from confirmed or completed appointments */}
+                  {group.booked.map((appt) => {
+                    const isCompleted = appt.status === 'COMPLETED';
+
+                    return (
+                      <div
+                        key={`booked-${appt.id}`}
+                        className={`am-slot-pill ${
+                          isCompleted ? 'am-slot-completed' : 'am-slot-booked'
+                        }`}
+                        title={`Appointment #${appt.id} • Patient: ${
+                          appt.patient
+                            ? `${appt.patient.firstName} ${appt.patient.lastName}`
+                            : 'Patient'
+                        } • Status: ${appt.status}${
+                          appt.reason ? ` • Reason: ${appt.reason}` : ''
+                        }`}
+                      >
+                        <span>
+                          {formatTime(appt.slot?.startTime)} –{' '}
+                          {formatTime(appt.slot?.endTime)}
+                        </span>
+                        <span className="am-pill-badge">
+                          {isCompleted ? 'Completed' : 'Confirmed'}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}

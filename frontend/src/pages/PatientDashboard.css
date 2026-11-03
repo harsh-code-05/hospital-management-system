@@ -1,14 +1,27 @@
+
+/* PatientDashboard.css
+   Layout, tab navigation, booking wizard, appointment cards, profile, and modal styles
+   Scoped to .patient-dashboard to prevent stylesheet collisions
+*/
+
+.patient-dashboard,
+.patient-dashboard *,
+.patient-dashboard *::before,
+.patient-dashboard *::after {
+  box-sizing: border-box;
+}
+
 .patient-dashboard {
   display: flex;
   flex-direction: column;
   flex: 1;
   width: 100%;
+  max-width: 100%;
   text-align: left;
-  box-sizing: border-box;
 }
 
 /* Header */
-.dashboard-header {
+.patient-dashboard .dashboard-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -17,15 +30,17 @@
   background: var(--bg);
   flex-wrap: wrap;
   gap: 16px;
+  width: 100%;
+  max-width: 100%;
 }
 
-.dashboard-brand {
+.patient-dashboard .dashboard-brand {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.dashboard-brand h1 {
+.patient-dashboard .dashboard-brand h1 {
   font-size: 20px;
   margin: 0;
   font-weight: 600;
@@ -33,7 +48,7 @@
   letter-spacing: -0.3px;
 }
 
-.brand-badge {
+.patient-dashboard .brand-badge {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
@@ -45,19 +60,19 @@
   border-radius: 4px;
 }
 
-.dashboard-user-area {
+.patient-dashboard .dashboard-user-area {
   display: flex;
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
 }
 
-.user-email-tag {
+.patient-dashboard .user-email-tag {
   font-size: 14px;
   color: var(--text);
 }
 
-.btn-secondary {
+.patient-dashboard .btn-secondary {
   padding: 8px 16px;
   font-size: 13px;
   font-weight: 500;
@@ -69,13 +84,13 @@
   transition: background-color 0.2s, border-color 0.2s;
 }
 
-.btn-secondary:hover {
+.patient-dashboard .btn-secondary:hover {
   background: var(--social-bg);
   border-color: var(--accent-border);
 }
 
 /* Tabs Navigation */
-.dashboard-tabs {
+.patient-dashboard .dashboard-tabs {
   display: flex;
   gap: 8px;
   padding: 12px 24px 0;
@@ -84,7 +99,7 @@
   overflow-x: auto;
 }
 
-.tab-btn {
+.patient-dashboard .tab-btn {
   padding: 10px 18px;
   font-size: 14px;
   font-weight: 500;
@@ -97,18 +112,18 @@
   transition: color 0.2s, border-color 0.2s;
 }
 
-.tab-btn:hover {
+.patient-dashboard .tab-btn:hover {
   color: var(--text-h);
 }
 
-.tab-btn.active {
+.patient-dashboard .tab-btn.active {
   color: var(--accent);
   border-bottom-color: var(--accent);
   font-weight: 600;
 }
 
 /* Main Content */
-.dashboard-content {
+.patient-dashboard .dashboard-content {
   padding: 24px;
   flex: 1;
   display: flex;
@@ -117,7 +132,7 @@
 }
 
 /* Alerts and Notices */
-.dashboard-alert {
+.patient-dashboard .dashboard-alert {
   padding: 14px 18px;
   border-radius: 8px;
   font-size: 14px;
@@ -127,65 +142,61 @@
   gap: 12px;
 }
 
-.alert-warning {
+.patient-dashboard .alert-warning {
   background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 158, 11, 0.3);
   color: #b45309;
 }
 
-.alert-error {
+.patient-dashboard .alert-error {
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
   color: #dc2626;
 }
 
-.alert-success {
+.patient-dashboard .alert-success {
   background: rgba(34, 197, 94, 0.1);
   border: 1px solid rgba(34, 197, 94, 0.3);
   color: #16a34a;
 }
 
-.alert-info {
+.patient-dashboard .alert-info {
   background: var(--accent-bg);
   border: 1px solid var(--accent-border);
   color: var(--accent);
 }
 
 @media (prefers-color-scheme: dark) {
-  .alert-warning {
+  .patient-dashboard .alert-warning {
     color: #fbbf24;
     border-color: rgba(245, 158, 11, 0.4);
   }
-  .alert-error {
+  .patient-dashboard .alert-error {
     color: #f87171;
     border-color: rgba(239, 68, 68, 0.4);
   }
-  .alert-success {
+  .patient-dashboard .alert-success {
     color: #4ade80;
     border-color: rgba(34, 197, 94, 0.4);
   }
 }
 
 /* Summary Metrics */
-.metrics-row {
+.patient-dashboard .metrics-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
+  width: 100%;
+  max-width: 100%;
 }
 
 @media (max-width: 900px) {
-  .metrics-row {
-    grid-template-columns: repeat(2, 1fr);
+  .patient-dashboard .metrics-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 500px) {
-  .metrics-row {
-    grid-template-columns: 1fr;
-  }
-}
-
-.metric-tile {
+.patient-dashboard .metric-tile {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -196,7 +207,7 @@
   gap: 6px;
 }
 
-.metric-label {
+.patient-dashboard .metric-label {
   font-size: 13px;
   font-weight: 500;
   color: var(--text);
@@ -204,14 +215,14 @@
   letter-spacing: 0.4px;
 }
 
-.metric-val {
+.patient-dashboard .metric-val {
   font-size: 28px;
   font-weight: 700;
   color: var(--text-h);
 }
 
 /* Status Filter Bar */
-.filter-toolbar {
+.patient-dashboard .filter-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -219,13 +230,13 @@
   gap: 12px;
 }
 
-.filter-btn-group {
+.patient-dashboard .filter-btn-group {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
 }
 
-.filter-btn {
+.patient-dashboard .filter-btn {
   padding: 6px 14px;
   font-size: 13px;
   border-radius: 20px;
@@ -236,12 +247,12 @@
   transition: all 0.2s;
 }
 
-.filter-btn:hover {
+.patient-dashboard .filter-btn:hover {
   color: var(--text-h);
   border-color: var(--accent-border);
 }
 
-.filter-btn.active {
+.patient-dashboard .filter-btn.active {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
@@ -249,13 +260,15 @@
 }
 
 /* Appointments List */
-.appointments-stack {
+.patient-dashboard .appointments-stack {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  width: 100%;
+  max-width: 100%;
 }
 
-.appointment-card {
+.patient-dashboard .appointment-card {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -266,9 +279,11 @@
   align-items: flex-start;
   gap: 20px;
   flex-wrap: wrap;
+  width: 100%;
+  max-width: 100%;
 }
 
-.card-main {
+.patient-dashboard .card-main {
   flex: 1;
   min-width: 260px;
   display: flex;
@@ -276,21 +291,21 @@
   gap: 10px;
 }
 
-.card-header-line {
+.patient-dashboard .card-header-line {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-.card-date-time {
+.patient-dashboard .card-date-time {
   font-size: 16px;
   font-weight: 600;
   color: var(--text-h);
 }
 
 /* Status Badges */
-.status-pill {
+.patient-dashboard .status-pill {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
@@ -298,88 +313,92 @@
   padding: 3px 10px;
   border-radius: 12px;
   display: inline-block;
+  white-space: nowrap;
 }
 
-.status-confirmed {
+.patient-dashboard .status-confirmed {
   background: rgba(34, 197, 94, 0.12);
   color: #16a34a;
   border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
-.status-completed {
+.patient-dashboard .status-completed {
   background: rgba(59, 130, 246, 0.12);
   color: #2563eb;
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
-.status-cancelled {
+.patient-dashboard .status-cancelled {
   background: rgba(239, 68, 68, 0.12);
   color: #dc2626;
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
-.status-noshow {
+.patient-dashboard .status-noshow {
   background: rgba(245, 158, 11, 0.12);
   color: #d97706;
   border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 @media (prefers-color-scheme: dark) {
-  .status-confirmed {
+  .patient-dashboard .status-confirmed {
     color: #4ade80;
   }
-  .status-completed {
+  .patient-dashboard .status-completed {
     color: #60a5fa;
   }
-  .status-cancelled {
+  .patient-dashboard .status-cancelled {
     color: #f87171;
   }
-  .status-noshow {
+  .patient-dashboard .status-noshow {
     color: #fbbf24;
   }
 }
 
-.card-doctor-info {
+.patient-dashboard .card-doctor-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.doctor-name {
+.patient-dashboard .doctor-name {
   font-size: 15px;
   font-weight: 600;
   color: var(--text-h);
 }
 
-.doctor-specialty {
+.patient-dashboard .doctor-specialty {
   font-size: 13px;
   color: var(--text);
 }
 
-.card-reason {
+.patient-dashboard .card-reason {
   font-size: 14px;
   color: var(--text);
   margin-top: 4px;
   padding: 8px 12px;
   background: var(--code-bg);
   border-radius: 6px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
-.card-reason strong {
+.patient-dashboard .card-reason strong {
   color: var(--text-h);
 }
 
-.card-footer-meta {
+.patient-dashboard .card-footer-meta {
   font-size: 12px;
   color: var(--text);
+  word-break: break-word;
 }
 
-.card-actions {
+.patient-dashboard .card-actions {
   display: flex;
   align-items: center;
 }
 
-.btn-cancel-appt {
+.patient-dashboard .btn-cancel-appt {
   padding: 8px 14px;
   font-size: 13px;
   font-weight: 500;
@@ -389,21 +408,22 @@
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
-.btn-cancel-appt:hover:not(:disabled) {
+.patient-dashboard .btn-cancel-appt:hover:not(:disabled) {
   background: #dc2626;
   color: #fff;
   border-color: #dc2626;
 }
 
-.btn-cancel-appt:disabled {
+.patient-dashboard .btn-cancel-appt:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
 /* Empty State */
-.empty-placeholder {
+.patient-dashboard .empty-placeholder {
   padding: 48px 24px;
   text-align: center;
   background: var(--bg);
@@ -412,57 +432,61 @@
   color: var(--text);
 }
 
-.empty-placeholder h3 {
+.patient-dashboard .empty-placeholder h3 {
   font-size: 18px;
   color: var(--text-h);
   margin: 0 0 8px;
 }
 
-.empty-placeholder p {
+.patient-dashboard .empty-placeholder p {
   font-size: 14px;
   margin: 0 0 16px;
 }
 
 /* Book Appointment Form */
-.booking-card {
+.patient-dashboard .booking-card {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 28px;
   box-shadow: var(--shadow);
   max-width: 720px;
+  width: 100%;
 }
 
-.booking-card h2 {
+.patient-dashboard .booking-card h2 {
   font-size: 22px;
   margin: 0 0 6px;
+  color: var(--text-h);
 }
 
-.booking-subtitle {
+.patient-dashboard .booking-subtitle {
   font-size: 14px;
   color: var(--text);
   margin-bottom: 24px;
 }
 
-.form-layout {
+.patient-dashboard .form-layout {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  width: 100%;
 }
 
-.form-field {
+.patient-dashboard .form-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  width: 100%;
 }
 
-.form-field label {
+.patient-dashboard .form-field label {
   font-size: 14px;
   font-weight: 500;
   color: var(--text-h);
 }
 
-.form-control {
+.patient-dashboard .form-control {
   padding: 10px 14px;
   font-size: 14px;
   border: 1px solid var(--border);
@@ -471,22 +495,24 @@
   color: var(--text-h);
   font-family: inherit;
   transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+  max-width: 100%;
 }
 
-.form-control:focus {
+.patient-dashboard .form-control:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-bg);
 }
 
-.slots-grid {
+.patient-dashboard .slots-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 6px;
 }
 
-.slot-pill {
+.patient-dashboard .slot-pill {
   padding: 8px 16px;
   font-size: 13px;
   font-weight: 500;
@@ -498,19 +524,19 @@
   transition: all 0.2s;
 }
 
-.slot-pill:hover {
+.patient-dashboard .slot-pill:hover {
   border-color: var(--accent);
   background: var(--social-bg);
 }
 
-.slot-pill.active {
+.patient-dashboard .slot-pill.active {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-bg);
 }
 
-.btn-primary {
+.patient-dashboard .btn-primary {
   padding: 12px 24px;
   font-size: 15px;
   font-weight: 600;
@@ -523,49 +549,47 @@
   align-self: flex-start;
 }
 
-.btn-primary:hover:not(:disabled) {
+.patient-dashboard .btn-primary:hover:not(:disabled) {
   opacity: 0.92;
 }
 
-.btn-primary:disabled {
+.patient-dashboard .btn-primary:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
 /* Profile Card */
-.profile-card {
+.patient-dashboard .profile-card {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 28px;
   box-shadow: var(--shadow);
   max-width: 640px;
+  width: 100%;
 }
 
-.profile-card h2 {
+.patient-dashboard .profile-card h2 {
   font-size: 22px;
   margin: 0 0 20px;
+  color: var(--text-h);
 }
 
-.profile-grid {
+.patient-dashboard .profile-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px 24px;
+  width: 100%;
 }
 
-@media (max-width: 600px) {
-  .profile-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.profile-item {
+.patient-dashboard .profile-item {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
-.profile-item-label {
+.patient-dashboard .profile-item-label {
   font-size: 12px;
   font-weight: 500;
   text-transform: uppercase;
@@ -573,14 +597,16 @@
   letter-spacing: 0.4px;
 }
 
-.profile-item-value {
+.patient-dashboard .profile-item-value {
   font-size: 15px;
   font-weight: 600;
   color: var(--text-h);
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 /* Confirmation Modal / Dialog */
-.modal-backdrop {
+.patient-dashboard .modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
@@ -591,7 +617,7 @@
   z-index: 1000;
 }
 
-.modal-dialog {
+.patient-dashboard .modal-dialog {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -601,26 +627,26 @@
   box-shadow: var(--shadow);
 }
 
-.modal-dialog h3 {
+.patient-dashboard .modal-dialog h3 {
   font-size: 18px;
   margin: 0 0 10px;
   color: var(--text-h);
 }
 
-.modal-dialog p {
+.patient-dashboard .modal-dialog p {
   font-size: 14px;
   color: var(--text);
   margin: 0 0 20px;
   line-height: 1.5;
 }
 
-.modal-actions {
+.patient-dashboard .modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
 }
 
-.btn-danger {
+.patient-dashboard .btn-danger {
   padding: 8px 18px;
   font-size: 13px;
   font-weight: 600;
@@ -632,37 +658,467 @@
   transition: opacity 0.2s;
 }
 
-.btn-danger:hover:not(:disabled) {
+.patient-dashboard .btn-danger:hover:not(:disabled) {
   opacity: 0.9;
 }
 
-.btn-danger:disabled {
+.patient-dashboard .btn-danger:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
 /* Profile Completion Form Styles */
-.form-field-row {
+.patient-dashboard .form-field-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  width: 100%;
 }
 
-@media (max-width: 600px) {
-  .form-field-row {
-    grid-template-columns: 1fr;
-  }
-}
-
-.form-field-error {
+.patient-dashboard .form-field-error {
   font-size: 13px;
   color: #dc2626;
   margin-top: 4px;
   display: block;
 }
 
-.profile-completion-section {
+.patient-dashboard .profile-completion-section {
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
+/* Responsive adjustments for mobile viewports (<= 650px) */
+@media (max-width: 650px) {
+  .patient-dashboard {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  /* Header */
+  .patient-dashboard .dashboard-header {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 10px 12px;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .patient-dashboard .dashboard-brand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .patient-dashboard .dashboard-brand h1 {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.2px;
+    margin: 0;
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .patient-dashboard .brand-badge {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    box-sizing: border-box;
+  }
+
+  .patient-dashboard .dashboard-user-area {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .patient-dashboard .user-email-tag {
+    font-size: 12px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .patient-dashboard .dashboard-user-area .btn-secondary {
+    padding: 5px 12px;
+    font-size: 12px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    box-sizing: border-box;
+  }
+
+  /* Tabs Navigation */
+  .patient-dashboard .dashboard-tabs {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 8px 12px 0;
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .patient-dashboard .dashboard-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .patient-dashboard .tab-btn {
+    padding: 8px 10px;
+    font-size: 13px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    box-sizing: border-box;
+  }
+
+  /* Main Content Spacing */
+  .patient-dashboard .dashboard-content {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 14px 12px;
+    gap: 14px;
+  }
+
+  .patient-dashboard .dashboard-alert {
+    padding: 10px 14px;
+    font-size: 13px;
+    gap: 8px;
+    box-sizing: border-box;
+  }
+
+  /* Metric Tiles */
+  .patient-dashboard .metrics-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .patient-dashboard .metric-tile {
+    padding: 12px 14px;
+    gap: 4px;
+    border-radius: 8px;
+    box-sizing: border-box;
+  }
+
+  .patient-dashboard .metric-label {
+    font-size: 11px;
+    letter-spacing: 0.3px;
+  }
+
+  .patient-dashboard .metric-val {
+    font-size: 22px;
+  }
+
+  /* Filter Toolbar */
+  .patient-dashboard .filter-toolbar {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .patient-dashboard .filter-btn-group {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .patient-dashboard .filter-btn-group::-webkit-scrollbar {
+    display: none;
+  }
+
+  .patient-dashboard .filter-btn {
+    padding: 5px 11px;
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    box-sizing: border-box;
+  }
+
+  .patient-dashboard .filter-toolbar > .btn-secondary {
+    width: 100%;
+    padding: 8px 14px;
+    font-size: 13px;
+    text-align: center;
+    box-sizing: border-box;
+  }
+
+  /* Appointment Cards */
+  .patient-dashboard .appointments-stack {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .patient-dashboard .appointment-card {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .patient-dashboard .card-main {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    gap: 10px;
+  }
+
+  .patient-dashboard .card-header-line {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .patient-dashboard .card-date-time {
+    font-size: 14px;
+    word-break: break-word;
+  }
+
+  .patient-dashboard .card-doctor-info {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .patient-dashboard .doctor-name {
+    font-size: 14px;
+  }
+
+  .patient-dashboard .doctor-specialty {
+    font-size: 12px;
+    word-break: break-word;
+  }
+
+  .patient-dashboard .card-reason {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    font-size: 13px;
+    padding: 6px 10px;
+  }
+
+  .patient-dashboard .card-footer-meta {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    font-size: 11px;
+  }
+
+  .patient-dashboard .card-actions {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    display: flex;
+  }
+
+  .patient-dashboard .btn-cancel-appt {
+    width: 100%;
+    min-width: 0;
+    padding: 8px 12px;
+    font-size: 13px;
+    text-align: center;
+    box-sizing: border-box;
+  }
+
+  /* Booking Card */
+  .patient-dashboard .booking-card {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding: 16px 14px;
+    box-sizing: border-box;
+  }
+
+  .patient-dashboard .booking-card h2 {
+    font-size: 18px;
+  }
+
+  .patient-dashboard .booking-subtitle {
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  .patient-dashboard .form-layout {
+    gap: 16px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .patient-dashboard .form-field {
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .patient-dashboard .form-field label {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .patient-dashboard .form-control {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    font-size: 13px;
+    border-radius: 8px;
+  }
+
+  .patient-dashboard .slots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .patient-dashboard .slot-pill {
+    padding: 8px 10px;
+    font-size: 12px;
+    text-align: center;
+    width: 100%;
+    box-sizing: border-box;
+    justify-content: center;
+  }
+
+  .patient-dashboard .btn-primary {
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 14px;
+    text-align: center;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  /* Profile Card */
+  .patient-dashboard .profile-card {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding: 16px 14px;
+    box-sizing: border-box;
+  }
+
+  .patient-dashboard .profile-card h2 {
+    font-size: 18px;
+    margin-bottom: 16px;
+  }
+
+  .patient-dashboard .profile-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .patient-dashboard .form-field-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .patient-dashboard .profile-item-label {
+    font-size: 11px;
+  }
+
+  .patient-dashboard .profile-item-value {
+    font-size: 14px;
+  }
+
+  /* Empty State */
+  .patient-dashboard .empty-placeholder {
+    padding: 28px 16px;
+    box-sizing: border-box;
+  }
+
+  .patient-dashboard .empty-placeholder h3 {
+    font-size: 16px;
+  }
+
+  .patient-dashboard .empty-placeholder p {
+    font-size: 13px;
+  }
+
+  /* Modal */
+  .patient-dashboard .modal-dialog {
+    padding: 18px 20px;
+    margin: 16px;
+    box-sizing: border-box;
+  }
+
+  .patient-dashboard .modal-actions {
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
+
+  .patient-dashboard .modal-actions button {
+    width: 100%;
+    padding: 10px 14px;
+    box-sizing: border-box;
+  }
+}
+
+/* Small mobile (<= 360px) extra refinements */
+@media (max-width: 360px) {
+  .patient-dashboard .metrics-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .patient-dashboard .slots-grid {
+    grid-template-columns: 1fr;
+  }
+}

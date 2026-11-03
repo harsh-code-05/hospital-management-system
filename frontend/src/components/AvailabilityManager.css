@@ -2,13 +2,20 @@
    Conforms to index.css design tokens and supports light/dark themes
 */
 
+.availability-manager,
+.availability-manager *,
+.availability-manager *::before,
+.availability-manager *::after {
+  box-sizing: border-box;
+}
+
 .availability-manager {
   display: flex;
   flex-direction: column;
   gap: 28px;
   width: 100%;
+  max-width: 100%;
   text-align: left;
-  box-sizing: border-box;
 }
 
 /* Card Sections */
@@ -21,6 +28,10 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .am-card-header {
@@ -61,6 +72,17 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.am-doctor-selector-field {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .am-label {
@@ -70,7 +92,9 @@
 }
 
 .am-input,
-.am-select {
+.am-select,
+.am-doctor-select,
+#am-doctor-select {
   padding: 10px 14px;
   font-size: 14px;
   border: 1px solid var(--border);
@@ -81,6 +105,43 @@
   transition: border-color 0.2s, box-shadow 0.2s;
   box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: block;
+}
+
+/* Doctor Details (Specialization & Qualification) */
+.am-doctor-details {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.am-doctor-spec,
+.am-doctor-qual {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.am-doctor-detail-label {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.am-doctor-detail-val {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.am-doctor-detail-divider {
+  color: var(--border);
+  user-select: none;
 }
 
 .am-input:focus,
@@ -153,9 +214,34 @@
   font-size: 14px;
   line-height: 1.5;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  word-break: break-word;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.am-alert strong,
+.am-alert .am-alert-label {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-weight: 600;
+  line-height: 1.5;
+  color: inherit;
+}
+
+.am-alert .am-alert-message,
+.am-alert > span:not(.am-alert-label),
+.am-alert > *:not(strong):not(.am-alert-label) {
+  flex: 1 1 0%;
+  min-width: 0;
+  word-break: normal;
+  overflow-wrap: break-word;
+  line-height: 1.5;
+  color: inherit;
 }
 
 .am-alert-error {
@@ -355,11 +441,23 @@
   color: #1d4ed8;
 }
 
+.am-slot-completed {
+  background: rgba(124, 58, 237, 0.08);
+  border-color: rgba(124, 58, 237, 0.35);
+  color: #6d28d9;
+}
+
 @media (prefers-color-scheme: dark) {
   .am-slot-booked {
     background: rgba(59, 130, 246, 0.15);
     border-color: rgba(59, 130, 246, 0.4);
     color: #60a5fa;
+  }
+
+  .am-slot-completed {
+    background: rgba(124, 58, 237, 0.15);
+    border-color: rgba(124, 58, 237, 0.4);
+    color: #c4b5fd;
   }
 }
 
@@ -378,6 +476,10 @@
 
 .am-slot-booked .am-pill-badge {
   background: rgba(59, 130, 246, 0.2);
+}
+
+.am-slot-completed .am-pill-badge {
+  background: rgba(124, 58, 237, 0.2);
 }
 
 /* Empty State */
@@ -420,5 +522,146 @@
   }
   .am-badge-pending {
     color: #fbbf24;
+  }
+}
+
+/* Responsive Styles */
+@media (max-width: 650px) {
+  .availability-manager {
+    gap: 18px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .am-card {
+    padding: 16px 14px;
+    border-radius: 10px;
+    gap: 14px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .am-card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .am-card-title {
+    font-size: 18px;
+  }
+
+  .am-card-subtitle {
+    font-size: 13px;
+  }
+
+  .am-form-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .am-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .am-metric-card {
+    padding: 12px 14px;
+  }
+
+  .am-metric-val {
+    font-size: 22px;
+  }
+
+  .am-avail-item {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .am-avail-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .am-schedule-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .am-schedule-filter {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .am-schedule-filter .am-select {
+    width: 100%;
+  }
+
+  .am-slots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .am-slot-pill {
+    width: 100%;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .am-btn {
+    padding: 9px 14px;
+    font-size: 13px;
+  }
+
+  .am-doctor-selector-field,
+  .am-form-field {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .am-doctor-select,
+  #am-doctor-select,
+  .am-select,
+  .am-input {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .am-doctor-details {
+    font-size: 12px;
+    gap: 4px 8px;
+  }
+}
+
+@media (max-width: 360px) {
+  .am-metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .am-slots-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .am-avail-actions .am-btn {
+    width: 100%;
   }
 }
