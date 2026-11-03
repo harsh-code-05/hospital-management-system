@@ -141,6 +141,12 @@ public class AppointmentService {
                     "Slot does not belong to this doctor");
         }
 
+        LocalDateTime slotStart = LocalDateTime.of(slot.getDate(), slot.getStartTime());
+        if (slotStart.isBefore(LocalDateTime.now())) {
+            throw new BadRequestException(
+                    "Cannot book an appointment slot in the past");
+        }
+
         slot.setStatus(SlotStatus.BOOKED);
 
         Appointment appointment = new Appointment();
@@ -172,14 +178,9 @@ public class AppointmentService {
             String authenticatedEmail,
             String role) {
 
-        Appointment appointment = appointmentRepository.findById(appointmentId)
+        Appointment appointment = appointmentRepository.findByIdForUpdate(appointmentId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Appointment not found"));
-
-        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
-            throw new BadRequestException(
-                    "Only confirmed appointments can be cancelled");
-        }
 
         boolean admin = role.equals("ROLE_ADMIN");
 
@@ -199,19 +200,38 @@ public class AppointmentService {
                     "You are not allowed to cancel this appointment");
         }
 
+        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new BadRequestException(
+                    "Only confirmed appointments can be cancelled");
+        }
+
+        // Lock transitions in a consistent order: appointment first, then its slot.
         AppointmentSlot slot = appointmentSlotRepository.findByIdForUpdate(
                         appointment.getSlot().getId())
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Appointment slot not found"));
 
+        if (slot.getStatus() != SlotStatus.BOOKED) {
+            throw new BadRequestException("Appointment slot is not booked");
+        }
+
         appointment.setStatus(AppointmentStatus.CANCELLED);
         slot.setStatus(SlotStatus.AVAILABLE);
 
         Appointment savedAppointment = appointmentRepository.save(appointment);
 
+        AuditEventType eventType;
+        if (admin) {
+            eventType = AuditEventType.ADMIN_CANCELLED_APPOINTMENT;
+        } else if (doctorOwner) {
+            eventType = AuditEventType.DOCTOR_CANCELLED_APPOINTMENT;
+        } else {
+            eventType = AuditEventType.PATIENT_CANCELLED_APPOINTMENT;
+        }
+
         auditLogService.logEvent(
-                AuditEventType.PATIENT_CANCELLED_APPOINTMENT,
+                eventType,
                 authenticatedEmail,
                 role,
                 "Appointment",
@@ -229,14 +249,9 @@ public class AppointmentService {
             String authenticatedEmail,
             String role) {
 
-        Appointment appointment = appointmentRepository.findById(appointmentId)
+        Appointment appointment = appointmentRepository.findByIdForUpdate(appointmentId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Appointment not found"));
-
-        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
-            throw new BadRequestException(
-                    "Only confirmed appointments can be completed");
-        }
 
         boolean admin = role.equals("ROLE_ADMIN");
 
@@ -251,8 +266,46 @@ public class AppointmentService {
                     "Only the assigned doctor or admin can complete this appointment");
         }
 
+        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new BadRequestException(
+                    "Only confirmed appointments can be completed");
+        }
+
+        // Lock transitions in a consistent order: appointment first, then its slot.
+        AppointmentSlot slot = appointmentSlotRepository.findByIdForUpdate(
+                        appointment.getSlot().getId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Appointment slot not found"));
+
+        if (slot.getStatus() != SlotStatus.BOOKED) {
+            throw new BadRequestException("Appointment slot is not booked");
+        }
+
+        LocalDateTime slotEnd = LocalDateTime.of(slot.getDate(), slot.getEndTime());
+        if (LocalDateTime.now().isBefore(slotEnd)) {
+            throw new BadRequestException(
+                    "Cannot complete an appointment before its scheduled end time");
+        }
+
         appointment.setStatus(AppointmentStatus.COMPLETED);
 
-        return appointmentRepository.save(appointment);
+        Appointment savedAppointment = appointmentRepository.save(appointment);
+
+        AuditEventType eventType = admin
+                ? AuditEventType.ADMIN_COMPLETED_APPOINTMENT
+                : AuditEventType.DOCTOR_COMPLETED_APPOINTMENT;
+
+        auditLogService.logEvent(
+                eventType,
+                authenticatedEmail,
+                role,
+                "Appointment",
+                savedAppointment.getId(),
+                "Completed appointment ID " + savedAppointment.getId(),
+                null
+        );
+
+        return savedAppointment;
     }
 }
