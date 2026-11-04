@@ -4,12 +4,14 @@ import com.harsh.hospitalmanagement.security.LocalAccount;
 import com.harsh.hospitalmanagement.entity.AppointmentSlot;
 import com.harsh.hospitalmanagement.entity.DoctorAvailability;
 import com.harsh.hospitalmanagement.enums.SlotStatus;
+import com.harsh.hospitalmanagement.exception.BadRequestException;
 import com.harsh.hospitalmanagement.exception.ForbiddenException;
 import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 import com.harsh.hospitalmanagement.repository.AppointmentSlotRepository;
 import com.harsh.hospitalmanagement.repository.DoctorAvailabilityRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -17,6 +19,8 @@ import java.util.List;
 
 @Service
 public class AppointmentSlotService {
+
+    private static final Duration SLOT_DURATION = Duration.ofMinutes(30);
 
     private final AppointmentSlotRepository appointmentSlotRepository;
     private final DoctorAvailabilityRepository doctorAvailabilityRepository;
@@ -71,12 +75,15 @@ public class AppointmentSlotService {
 
         LocalTime currentTime = availability.getStartTime();
         LocalTime endTime = availability.getEndTime();
+        if (!currentTime.isBefore(endTime)) {
+            throw new BadRequestException("Start time must be before end time");
+        }
 
+        long slotCount = Duration.between(currentTime, endTime).dividedBy(SLOT_DURATION);
         List<AppointmentSlot> slots = new ArrayList<>();
 
-        while (currentTime.plusMinutes(30).compareTo(endTime) <= 0) {
-
-            LocalTime slotEndTime = currentTime.plusMinutes(30);
+        for (long i = 0; i < slotCount; i++) {
+            LocalTime slotEndTime = currentTime.plus(SLOT_DURATION);
 
             boolean alreadyExists =
                     appointmentSlotRepository.existsByDoctorAndDateAndTime(
