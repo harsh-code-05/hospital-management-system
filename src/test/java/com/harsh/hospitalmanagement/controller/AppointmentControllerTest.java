@@ -124,7 +124,8 @@ class AppointmentControllerTest {
     void bookAppointment_shouldReturn200_whenValidAndAuthenticatedAsPatient() throws Exception {
         Appointment appointment = createMockAppointment(100L, AppointmentStatus.CONFIRMED);
 
-        when(appointmentService.bookAppointment(eq(1L), eq(2L), eq(5L), eq("Chest tightness"), eq(account("patient@test.com"))))
+        when(appointmentService.bookAppointment(eq(1L), eq(2L), eq(5L), eq(LocalDate.of(2026, 12, 11)),
+                eq("Chest tightness"), eq(account("patient@test.com"))))
                 .thenReturn(appointment);
 
         String json = """
@@ -132,6 +133,7 @@ class AppointmentControllerTest {
                     "patientId": 1,
                     "doctorId": 2,
                     "slotId": 5,
+                    "appointmentDate": "2026-12-11",
                     "reason": "Chest tightness"
                 }
                 """;
@@ -145,7 +147,8 @@ class AppointmentControllerTest {
                 .andExpect(jsonPath("$.reason").value("Chest tightness"))
                 .andExpect(jsonPath("$.patient.id").value(1L))
                 .andExpect(jsonPath("$.doctor.id").value(2L))
-                .andExpect(jsonPath("$.slot.id").value(5L));
+                .andExpect(jsonPath("$.slot.id").value(5L))
+                .andExpect(jsonPath("$.slot.date").value("2026-12-11"));
     }
 
     @Test
@@ -167,7 +170,9 @@ class AppointmentControllerTest {
                 .andExpect(jsonPath("$.errors.patientId").value("Patient ID is required"))
                 .andExpect(jsonPath("$.errors.doctorId").value("Doctor ID is required"))
                 .andExpect(jsonPath("$.errors.slotId").value("Slot ID is required"))
+                .andExpect(jsonPath("$.errors.appointmentDate").value("Appointment date is required"))
                 .andExpect(jsonPath("$.errors.reason").value("Reason is required"));
+        verifyNoInteractions(appointmentService);
     }
 
     @Test
@@ -178,6 +183,7 @@ class AppointmentControllerTest {
                     "patientId": 1,
                     "doctorId": 2,
                     "slotId": 5,
+                    "appointmentDate": "2026-12-11",
                     "reason": "Checkup"
                 }
                 """;
@@ -196,6 +202,7 @@ class AppointmentControllerTest {
                     "patientId": 1,
                     "doctorId": 2,
                     "slotId": 5,
+                    "appointmentDate": "2026-12-11",
                     "reason": "Checkup"
                 }
                 """;
@@ -213,6 +220,7 @@ class AppointmentControllerTest {
                     "patientId": 1,
                     "doctorId": 2,
                     "slotId": 5,
+                    "appointmentDate": "2026-12-11",
                     "reason": "Checkup"
                 }
                 """;

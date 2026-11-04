@@ -274,7 +274,7 @@ class AppointmentServiceTest {
             return app;
         });
 
-        Appointment booked = appointmentService.bookAppointment(1L, 2L, 3L, "Checkup", account("patient@test.com"));
+        Appointment booked = appointmentService.bookAppointment(1L, 2L, 3L, slot.getDate(), "Checkup", account("patient@test.com"));
 
         assertThat(booked.getId()).isEqualTo(10L);
         assertThat(booked.getStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
@@ -302,7 +302,7 @@ class AppointmentServiceTest {
         when(doctorRepository.findById(2L)).thenReturn(Optional.of(doctor));
         givenBookingSlot(slot);
 
-        assertThatThrownBy(() -> appointmentService.bookAppointment(1L, 2L, 3L, "Checkup", account("patient@test.com")))
+        assertThatThrownBy(() -> appointmentService.bookAppointment(1L, 2L, 3L, slot.getDate(), "Checkup", account("patient@test.com")))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("Appointment slot is not available");
 
@@ -315,7 +315,7 @@ class AppointmentServiceTest {
         Patient patient = createPatient(1L, "other@test.com");
         when(patientRepository.findById(1L)).thenReturn(Optional.of(patient));
 
-        assertThatThrownBy(() -> appointmentService.bookAppointment(1L, 2L, 3L, "Checkup", account("patient@test.com")))
+        assertThatThrownBy(() -> appointmentService.bookAppointment(1L, 2L, 3L, LocalDate.now().plusDays(1), "Checkup", account("patient@test.com")))
                 .isInstanceOf(ForbiddenException.class);
 
         verify(auditLogService, never()).logEvent(any(), any(), any(), any(), any(), any(), any());
@@ -331,7 +331,7 @@ class AppointmentServiceTest {
         when(doctorRepository.findById(2L)).thenReturn(Optional.of(doctor));
         givenBookingSlot(pastSlot);
 
-        assertThatThrownBy(() -> appointmentService.bookAppointment(1L, 2L, 3L, "Checkup", account("patient@test.com")))
+        assertThatThrownBy(() -> appointmentService.bookAppointment(1L, 2L, 3L, pastSlot.getDate(), "Checkup", account("patient@test.com")))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("Cannot book an appointment slot in the past");
 
@@ -350,7 +350,7 @@ class AppointmentServiceTest {
         when(doctorRepository.findById(2L)).thenReturn(Optional.of(doctorRequested));
         givenBookingSlot(slot);
 
-        assertThatThrownBy(() -> appointmentService.bookAppointment(1L, 2L, 3L, "Checkup", account("patient@test.com")))
+        assertThatThrownBy(() -> appointmentService.bookAppointment(1L, 2L, 3L, slot.getDate(), "Checkup", account("patient@test.com")))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("Slot does not belong to this doctor");
 
@@ -374,7 +374,7 @@ class AppointmentServiceTest {
             return app;
         });
 
-        Appointment rebooked = appointmentService.bookAppointment(1L, 2L, 5L, "Follow-up", account("patient@test.com"));
+        Appointment rebooked = appointmentService.bookAppointment(1L, 2L, 5L, releasedSlot.getDate(), "Follow-up", account("patient@test.com"));
 
         assertThat(rebooked.getId()).isEqualTo(55L);
         assertThat(releasedSlot.getStatus()).isEqualTo(SlotStatus.BOOKED);
@@ -385,7 +385,7 @@ class AppointmentServiceTest {
     void bookAppointment_shouldThrowNotFound_whenPatientNotFound() {
         when(patientRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> appointmentService.bookAppointment(99L, 2L, 3L, "Checkup", account("patient@test.com")))
+        assertThatThrownBy(() -> appointmentService.bookAppointment(99L, 2L, 3L, LocalDate.now().plusDays(1), "Checkup", account("patient@test.com")))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Patient not found");
     }
@@ -396,7 +396,7 @@ class AppointmentServiceTest {
         when(patientRepository.findById(1L)).thenReturn(Optional.of(patient));
         when(doctorRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> appointmentService.bookAppointment(1L, 99L, 3L, "Checkup", account("patient@test.com")))
+        assertThatThrownBy(() -> appointmentService.bookAppointment(1L, 99L, 3L, LocalDate.now().plusDays(1), "Checkup", account("patient@test.com")))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Doctor not found");
     }
@@ -409,7 +409,7 @@ class AppointmentServiceTest {
         when(doctorRepository.findById(2L)).thenReturn(Optional.of(doctor));
         when(appointmentSlotRepository.findDoctorIdById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> appointmentService.bookAppointment(1L, 2L, 99L, "Checkup", account("patient@test.com")))
+        assertThatThrownBy(() -> appointmentService.bookAppointment(1L, 2L, 99L, LocalDate.now().plusDays(1), "Checkup", account("patient@test.com")))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Appointment slot not found");
     }

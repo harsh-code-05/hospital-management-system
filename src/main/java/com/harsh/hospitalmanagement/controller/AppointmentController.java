@@ -31,6 +31,7 @@ public class AppointmentController {
                 request.getPatientId(),
                 request.getDoctorId(),
                 request.getSlotId(),
+                request.getAppointmentDate(),
                 request.getReason(),
                 LocalAccount.require(authentication)
         );

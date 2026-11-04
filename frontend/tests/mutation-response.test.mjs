@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import {
+  isDate,
   mutationErrorMessage,
   requireAppointmentResult,
   requireAvailabilityResult,
@@ -41,15 +42,17 @@ test('booking rejects HTML and preserves the form for a manual retry', async () 
   let busy;
   const submit = loadHandler('../src/pages/PatientDashboard.jsx', 'handleBookSubmit', {
     ...values, user: { id: 7 }, patientProfile: { id: 1 }, profileNotFound: false, formDrafts,
+    bookingInProgress: { current: false }, isDate, getTodayIso: () => '2098-01-01',
+    getCurrentSlot: () => ({ id: values.selectedSlotId }),
     api: { post: async () => html },
     requireAppointmentResult, mutationErrorMessage,
     setBookingError: (message) => { error = message; },
     setBookingSuccess: (message) => { success = message; },
-    setSelectedSlotId: (value) => { values.selectedSlotId = value; },
+    selectSlot: (value) => { values.selectedSlotId = value; },
     setBookingReason: (value) => { values.bookingReason = value; },
     setIsBooking: (value) => { busy = value; },
     fetchAppointments: () => assert.fail('unexpected refresh'),
-    fetchSlots: () => assert.fail('unexpected refresh'),
+    refreshSlots: () => assert.fail('unexpected refresh'),
   });
   await submit({ preventDefault() {} });
 

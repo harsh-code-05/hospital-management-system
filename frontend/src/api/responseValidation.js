@@ -7,7 +7,7 @@ export class UnexpectedApiResponse extends Error {
 export const isApiId = (value) => Number.isSafeInteger(value) && value > 0;
 const isText = (value) => typeof value === 'string' && value.trim().length > 0;
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
-function isDate(value) {
+export function isDate(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const timestamp = Date.parse(`${value}T00:00:00Z`);
   return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value;
@@ -49,10 +49,14 @@ export function requireAvailabilityResult(response, request) {
     && data.doctor.id === request.doctorId && data.date === request.date);
 }
 
-export function requireSlotGenerationResult(response, availability) {
+export function requireAvailableSlots(response, doctorId, date) {
   return requireJsonResponse(response, (data) => Array.isArray(data)
     && data.every((slot) => isScheduleInterval(slot) && slot.status === 'AVAILABLE'
-      && slot.doctor.id === availability.doctor.id && slot.date === availability.date));
+      && slot.doctor.id === doctorId && slot.date === date));
+}
+
+export function requireSlotGenerationResult(response, availability) {
+  return requireAvailableSlots(response, availability.doctor.id, availability.date);
 }
 
 export function mutationErrorMessage(error, fallback) {

@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
-import { mutationErrorMessage, requireAppointmentResult, requirePatientProfileResult } from '../api/responseValidation';
+import { isDate, mutationErrorMessage, requireAppointmentResult, requirePatientProfileResult } from '../api/responseValidation';
 import { useAuth } from '../context/useAuth';
+import usePatientSlots from '../hooks/usePatientSlots';
 import './PatientDashboard.css';
 
 function formatDate(dateStr) {
@@ -45,7 +46,7 @@ export default function PatientDashboard() {
   const navigate = useNavigate();
   const [bookingDraft] = useState(() => formDrafts.get(user.id, 'booking'));
   const [profileDraft] = useState(() => formDrafts.get(user.id, 'patientProfile'));
-  const restoredSlotsRequest = useRef(null);
+  const bookingInProgress = useRef(false);
 
   // Active view tab
   const [activeTab, setActiveTab] = useState(bookingDraft ? 'book' : profileDraft ? 'profile' : 'appointments');
@@ -85,11 +86,11 @@ export default function PatientDashboard() {
   const [specializations, setSpecializations] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [selectedSpecialtyId, setSelectedSpecialtyId] = useState(bookingDraft?.selectedSpecialtyId ?? 'all');
-  const [selectedDoctorId, setSelectedDoctorId] = useState(bookingDraft?.selectedDoctorId ?? '');
-  const [selectedDate, setSelectedDate] = useState(bookingDraft?.selectedDate ?? getTodayIso());
-  const [availableSlots, setAvailableSlots] = useState([]);
-  const [slotsLoading, setSlotsLoading] = useState(Boolean(bookingDraft?.selectedDoctorId));
-  const [selectedSlotId, setSelectedSlotId] = useState(null);
+  const { selection, selectDoctor, selectDate, refreshSlots, selectSlot, getCurrentSlot } =
+    usePatientSlots(bookingDraft, getTodayIso());
+  const {
+    doctorId: selectedDoctorId, date: selectedDate, selectedSlotId, slots: availableSlots, status: slotsStatus,
+  } = selection;
   const [bookingReason, setBookingReason] = useState(bookingDraft?.bookingReason ?? '');
   const [isBooking, setIsBooking] = useState(false);
   const [bookingError, setBookingError] = useState('');
@@ -144,45 +145,6 @@ export default function PatientDashboard() {
     }
   }, []);
 
-  // 4. Fetch Slots for Selected Doctor and Date
-  const loadSlots = useCallback((doctorId, date, slotToRestore = null, signal) => {
-    const params = { doctorId };
-    if (date) params.date = date;
-    return api.get('/appointment-slots/available', { params, signal }).then((res) => {
-      if (signal?.aborted) return;
-      const slots = Array.isArray(res.data) ? res.data : [];
-      setAvailableSlots(slots);
-      if (slotToRestore && slots.some((slot) => slot.id === slotToRestore)) {
-        setSelectedSlotId(slotToRestore);
-      }
-    }).catch((err) => {
-      if (signal?.aborted) return;
-      console.error('Failed to load available slots:', err);
-      setAvailableSlots([]);
-    }).finally(() => {
-      if (!signal?.aborted) setSlotsLoading(false);
-    });
-  }, []);
-
-  const fetchSlots = (doctorId, date) => {
-    restoredSlotsRequest.current?.abort();
-    if (!doctorId) {
-      setAvailableSlots([]);
-      return;
-    }
-    setSlotsLoading(true);
-    setSelectedSlotId(null);
-    return loadSlots(doctorId, date);
-  };
-
-  useEffect(() => {
-    if (!bookingDraft?.selectedDoctorId) return;
-    const request = new AbortController();
-    restoredSlotsRequest.current = request;
-    loadSlots(bookingDraft.selectedDoctorId, bookingDraft.selectedDate, bookingDraft.selectedSlotId, request.signal);
-    return () => request.abort();
-  }, [bookingDraft, loadSlots]);
-
   // Initial Data Load
   useEffect(() => {
     let ignore = false;
@@ -227,9 +189,7 @@ export default function PatientDashboard() {
       );
       setCancellingAppt(null);
       await fetchAppointments();
-      if (selectedDoctorId) {
-        fetchSlots(selectedDoctorId, selectedDate);
-      }
+      refreshSlots();
     } catch (err) {
       setCancelError(
         mutationErrorMessage(err, 'Failed to cancel appointment. Please try again.'),
@@ -323,6 +283,7 @@ export default function PatientDashboard() {
   // Handle Book Appointment
   const handleBookSubmit = async (e) => {
     e.preventDefault();
+    if (bookingInProgress.current) return;
     setBookingError('');
     setBookingSuccess('');
 
@@ -338,7 +299,13 @@ export default function PatientDashboard() {
       return;
     }
 
-    if (!selectedSlotId) {
+    if (!isDate(selectedDate) || selectedDate < getTodayIso()) {
+      setBookingError('Please select a valid appointment date.');
+      return;
+    }
+
+    const slot = getCurrentSlot(selectedDoctorId, selectedDate, selectedSlotId);
+    if (!slot) {
       setBookingError('Please select an available time slot.');
       return;
     }
@@ -348,33 +315,36 @@ export default function PatientDashboard() {
       return;
     }
 
+    bookingInProgress.current = true;
     setIsBooking(true);
     const draft = { selectedSpecialtyId, selectedDoctorId, selectedDate, selectedSlotId, bookingReason };
-    formDrafts.save(user.id, 'booking', draft);
     try {
+      formDrafts.save(user.id, 'booking', draft);
       const request = {
         patientId: patientProfile.id,
         doctorId: Number(selectedDoctorId),
-        slotId: Number(selectedSlotId),
+        slotId: slot.id,
+        appointmentDate: selectedDate,
         reason: bookingReason.trim(),
       };
       const response = await api.post('/appointments', request);
       const booked = requireAppointmentResult(response, 'CONFIRMED', (data) =>
         data.patient?.id === request.patientId && data.doctor?.id === request.doctorId
-        && data.slot?.id === request.slotId,
+        && data.slot?.id === request.slotId && data.slot?.date === request.appointmentDate,
       );
       formDrafts.discard(user.id, 'booking', draft);
 
       setBookingSuccess(`Appointment #${booked.id} confirmed successfully!`);
-      setSelectedSlotId(null);
+      selectSlot(null);
       setBookingReason('');
       await fetchAppointments();
-      fetchSlots(selectedDoctorId, selectedDate);
+      refreshSlots();
     } catch (err) {
       setBookingError(
         mutationErrorMessage(err, 'Failed to book appointment. Please check availability and try again.'),
       );
     } finally {
+      bookingInProgress.current = false;
       setIsBooking(false);
     }
   };
@@ -728,12 +698,8 @@ export default function PatientDashboard() {
                   className="form-control"
                   value={selectedSpecialtyId}
                   onChange={(e) => {
-                    restoredSlotsRequest.current?.abort();
-                    setSlotsLoading(false);
                     setSelectedSpecialtyId(e.target.value);
-                    setSelectedDoctorId('');
-                    setAvailableSlots([]);
-                    setSelectedSlotId(null);
+                    selectDoctor('');
                   }}
                   disabled={isBooking}
                 >
@@ -753,18 +719,7 @@ export default function PatientDashboard() {
                   id="doctor-select"
                   className="form-control"
                   value={selectedDoctorId}
-                  onChange={(e) => {
-                    const docId = e.target.value;
-                    setSelectedDoctorId(docId);
-                    setSelectedSlotId(null);
-                    if (docId) {
-                      fetchSlots(docId, selectedDate);
-                    } else {
-                      restoredSlotsRequest.current?.abort();
-                      setSlotsLoading(false);
-                      setAvailableSlots([]);
-                    }
-                  }}
+                  onChange={(e) => selectDoctor(e.target.value)}
                   disabled={isBooking}
                   required
                 >
@@ -799,14 +754,7 @@ export default function PatientDashboard() {
                   className="form-control"
                   value={selectedDate}
                   min={getTodayIso()}
-                  onChange={(e) => {
-                    const dateVal = e.target.value;
-                    setSelectedDate(dateVal);
-                    setSelectedSlotId(null);
-                    if (selectedDoctorId) {
-                      fetchSlots(selectedDoctorId, dateVal);
-                    }
-                  }}
+                  onChange={(e) => selectDate(e.target.value)}
                   disabled={isBooking}
                   required
                 />
@@ -819,10 +767,18 @@ export default function PatientDashboard() {
                   <span style={{ fontSize: '13px', color: 'var(--text)' }}>
                     Please select a doctor to view available slots.
                   </span>
-                ) : slotsLoading ? (
+                ) : slotsStatus === 'idle' ? (
+                  <span style={{ fontSize: '13px', color: 'var(--text)' }}>
+                    Please choose a valid date to view available slots.
+                  </span>
+                ) : slotsStatus === 'loading' ? (
                   <span style={{ fontSize: '13px', color: 'var(--text)' }}>
                     Loading available slots...
                   </span>
+                ) : slotsStatus === 'error' ? (
+                  <div role="alert" className="dashboard-alert alert-error">
+                    Unable to load available slots. Please try again.
+                  </div>
                 ) : availableSlots.length === 0 ? (
                   <span style={{ fontSize: '13px', color: 'var(--text)' }}>
                     No available slots for this doctor on{' '}
@@ -838,7 +794,7 @@ export default function PatientDashboard() {
                           key={slot.id}
                           type="button"
                           className={`slot-pill ${isSelected ? 'active' : ''}`}
-                          onClick={() => setSelectedSlotId(slot.id)}
+                          onClick={() => selectSlot(slot.id)}
                           disabled={isBooking}
                         >
                           {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
@@ -872,6 +828,7 @@ export default function PatientDashboard() {
                 className="btn-primary"
                 disabled={
                   isBooking ||
+                  slotsStatus !== 'ready' ||
                   !selectedDoctorId ||
                   !selectedSlotId ||
                   !bookingReason.trim() ||

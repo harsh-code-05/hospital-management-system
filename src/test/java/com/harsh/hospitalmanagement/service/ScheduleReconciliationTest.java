@@ -166,6 +166,24 @@ class ScheduleReconciliationTest {
     }
 
     @Test
+    void expectedDateMismatchLeavesNoAppointmentAndKeepsTheSlotAvailable() {
+        Doctor doctor = doctor();
+        Patient patient = patient();
+        DoctorAvailability window = create(doctor, "09:00", "09:30");
+        AppointmentSlot slot = generate(window).getFirst();
+
+        assertThatThrownBy(() -> appointmentService.bookAppointment(patient.getId(), doctor.getId(), slot.getId(),
+                slot.getDate().plusDays(1), "Test", account(patient.getUser())))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessage("Selected appointment date does not match the slot date");
+
+        assertThat(appointmentRepository.findByDoctor_User_IdOrderByCreatedAtDesc(doctor.getUser().getId())).isEmpty();
+        assertThat(slotService.getSlotById(slot.getId()).getStatus()).isEqualTo(SlotStatus.AVAILABLE);
+        assertThat(slotRepository.isBookable(slot.getId())).isTrue();
+        assertThat(book(patient, doctor, slot).getStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
+    }
+
+    @Test
     void generationSkipsIntervalsOverlappingAnExistingBookableSlot() {
         Doctor doctor = doctor();
         DoctorAvailability window = create(doctor, "09:00", "10:00");
@@ -414,7 +432,7 @@ class ScheduleReconciliationTest {
     }
 
     private Appointment book(Patient patient, Doctor doctor, AppointmentSlot slot) {
-        return appointmentService.bookAppointment(patient.getId(), doctor.getId(), slot.getId(), "Test",
+        return appointmentService.bookAppointment(patient.getId(), doctor.getId(), slot.getId(), slot.getDate(), "Test",
                 account(patient.getUser()));
     }
 

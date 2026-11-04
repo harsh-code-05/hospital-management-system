@@ -19,6 +19,7 @@ import java.util.List;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.harsh.hospitalmanagement.enums.AuditEventType;
@@ -109,6 +110,7 @@ public class AppointmentService {
             Long patientId,
             Long doctorId,
             Long slotId,
+            LocalDate appointmentDate,
             String reason,
             LocalAccount actor) {
 
@@ -154,6 +156,10 @@ public class AppointmentService {
 
         if (!appointmentSlotRepository.isBookable(slotId)) {
             throw new BadRequestException("Appointment slot is not available");
+        }
+
+        if (!slot.getDate().equals(appointmentDate)) {
+            throw new BadRequestException("Selected appointment date does not match the slot date");
         }
 
         if (appointmentRepository.existsOverlappingConfirmedAppointment(

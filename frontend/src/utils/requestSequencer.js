@@ -32,6 +32,7 @@ export class RequestSequencer {
   }
 
   cancelActive() {
+    this.currentId += 1;
     if (this.activeController) {
       this.activeController.abort();
       this.activeController = null;
