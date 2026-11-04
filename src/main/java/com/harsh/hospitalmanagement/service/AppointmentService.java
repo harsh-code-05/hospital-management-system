@@ -1,5 +1,6 @@
 package com.harsh.hospitalmanagement.service;
 
+import com.harsh.hospitalmanagement.security.LocalAccount;
 import com.harsh.hospitalmanagement.entity.Appointment;
 import com.harsh.hospitalmanagement.entity.AppointmentSlot;
 import com.harsh.hospitalmanagement.entity.Doctor;
@@ -47,7 +48,7 @@ public class AppointmentService {
 
     public Appointment getAppointmentById(
             Long id,
-            String authenticatedEmail,
+            LocalAccount actor,
             String role) {
 
         Appointment appointment = appointmentRepository.findById(id)
@@ -58,16 +59,16 @@ public class AppointmentService {
             return appointment;
         }
 
-        String patientEmail = appointment.getPatient()
+        Long patientUserId = appointment.getPatient()
                 .getUser()
-                .getEmail();
+                .getId();
 
-        String doctorEmail = appointment.getDoctor()
+        Long doctorUserId = appointment.getDoctor()
                 .getUser()
-                .getEmail();
+                .getId();
 
-        boolean patientOwner = patientEmail.equals(authenticatedEmail);
-        boolean doctorOwner = doctorEmail.equals(authenticatedEmail);
+        boolean patientOwner = actor.id() == patientUserId;
+        boolean doctorOwner = actor.id() == doctorUserId;
 
         if (!patientOwner && !doctorOwner) {
             throw new ForbiddenException(
@@ -78,7 +79,7 @@ public class AppointmentService {
     }
 
     public List<Appointment> getAppointments(
-            String authenticatedEmail,
+            LocalAccount actor,
             String role) {
 
         if (role.equals("ROLE_ADMIN")) {
@@ -88,14 +89,14 @@ public class AppointmentService {
 
         if (role.equals("ROLE_PATIENT")) {
             return appointmentRepository
-                    .findByPatient_User_EmailOrderByCreatedAtDesc(
-                            authenticatedEmail);
+                    .findByPatient_User_IdOrderByCreatedAtDesc(
+                            actor.id());
         }
 
         if (role.equals("ROLE_DOCTOR")) {
             return appointmentRepository
-                    .findByDoctor_User_EmailOrderByCreatedAtDesc(
-                            authenticatedEmail);
+                    .findByDoctor_User_IdOrderByCreatedAtDesc(
+                            actor.id());
         }
 
         throw new ForbiddenException(
@@ -108,15 +109,15 @@ public class AppointmentService {
             Long doctorId,
             Long slotId,
             String reason,
-            String authenticatedEmail) {
+            LocalAccount actor) {
 
         Patient patient = patientRepository.findById(patientId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Patient not found"));
 
-        String patientEmail = patient.getUser().getEmail();
+        Long patientUserId = patient.getUser().getId();
 
-        if (!patientEmail.equals(authenticatedEmail)) {
+        if (actor.id() != patientUserId) {
             throw new ForbiddenException(
                     "You are not allowed to book an appointment for this patient");
         }
@@ -162,7 +163,7 @@ public class AppointmentService {
 
         auditLogService.logEvent(
                 AuditEventType.PATIENT_BOOKED_APPOINTMENT,
-                authenticatedEmail,
+                actor.email(),
                 "ROLE_PATIENT",
                 "Appointment",
                 savedAppointment.getId(),
@@ -175,7 +176,7 @@ public class AppointmentService {
     @Transactional
     public Appointment cancelAppointment(
             Long appointmentId,
-            String authenticatedEmail,
+            LocalAccount actor,
             String role) {
 
         Appointment appointment = appointmentRepository.findByIdForUpdate(appointmentId)
@@ -184,16 +185,16 @@ public class AppointmentService {
 
         boolean admin = role.equals("ROLE_ADMIN");
 
-        String patientEmail = appointment.getPatient()
+        Long patientUserId = appointment.getPatient()
                 .getUser()
-                .getEmail();
+                .getId();
 
-        String doctorEmail = appointment.getDoctor()
+        Long doctorUserId = appointment.getDoctor()
                 .getUser()
-                .getEmail();
+                .getId();
 
-        boolean patientOwner = patientEmail.equals(authenticatedEmail);
-        boolean doctorOwner = doctorEmail.equals(authenticatedEmail);
+        boolean patientOwner = actor.id() == patientUserId;
+        boolean doctorOwner = actor.id() == doctorUserId;
 
         if (!admin && !patientOwner && !doctorOwner) {
             throw new ForbiddenException(
@@ -232,7 +233,7 @@ public class AppointmentService {
 
         auditLogService.logEvent(
                 eventType,
-                authenticatedEmail,
+                actor.email(),
                 role,
                 "Appointment",
                 savedAppointment.getId(),
@@ -246,7 +247,7 @@ public class AppointmentService {
     @Transactional
     public Appointment completeAppointment(
             Long appointmentId,
-            String authenticatedEmail,
+            LocalAccount actor,
             String role) {
 
         Appointment appointment = appointmentRepository.findByIdForUpdate(appointmentId)
@@ -255,11 +256,11 @@ public class AppointmentService {
 
         boolean admin = role.equals("ROLE_ADMIN");
 
-        String doctorEmail = appointment.getDoctor()
+        Long doctorUserId = appointment.getDoctor()
                 .getUser()
-                .getEmail();
+                .getId();
 
-        boolean doctorOwner = doctorEmail.equals(authenticatedEmail);
+        boolean doctorOwner = actor.id() == doctorUserId;
 
         if (!admin && !doctorOwner) {
             throw new ForbiddenException(
@@ -298,7 +299,7 @@ public class AppointmentService {
 
         auditLogService.logEvent(
                 eventType,
-                authenticatedEmail,
+                actor.email(),
                 role,
                 "Appointment",
                 savedAppointment.getId(),

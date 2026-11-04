@@ -1,5 +1,6 @@
 package com.harsh.hospitalmanagement.controller;
 
+import com.harsh.hospitalmanagement.security.LocalAccount;
 import com.harsh.hospitalmanagement.dto.*;
 import com.harsh.hospitalmanagement.entity.DoctorApplication;
 import com.harsh.hospitalmanagement.service.DoctorApplicationService;
@@ -45,7 +46,7 @@ public class DoctorApplicationController {
         DoctorApplication application =
                 doctorApplicationService.applyForDoctor(
                         request,
-                        authentication.getName()
+                        LocalAccount.require(authentication).id()
                 );
 
         return ResponseEntity.ok(toResponse(application));
@@ -59,7 +60,7 @@ public class DoctorApplicationController {
             Authentication authentication) {
 
         DoctorApplication application =
-                doctorApplicationService.getMyApplication(authentication.getName());
+                doctorApplicationService.getMyApplication(LocalAccount.require(authentication).id());
 
         return ResponseEntity.ok(toResponse(application));
     }
@@ -103,7 +104,7 @@ public class DoctorApplicationController {
         DoctorApplication application =
                 doctorApplicationService.approveApplication(
                         id,
-                        authentication.getName()
+                        LocalAccount.require(authentication).id()
                 );
 
         return ResponseEntity.ok(toResponse(application));
@@ -122,7 +123,7 @@ public class DoctorApplicationController {
                 doctorApplicationService.rejectApplication(
                         id,
                         request.getReason(),
-                        authentication.getName()
+                        LocalAccount.require(authentication).id()
                 );
 
         return ResponseEntity.ok(toResponse(application));

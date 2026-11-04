@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
+import { mutationErrorMessage, requireJsonResponse } from '../api/responseValidation';
 import { useAuth } from '../context/useAuth';
 import './LoginPage.css';
 
@@ -24,7 +25,7 @@ function getDashboardPath(role) {
 }
 
 export default function LoginPage() {
-  const { user, loading, refreshUser } = useAuth();
+  const { user, loading, sessionExpired, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -33,7 +34,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState(() => {
     return searchParams.get('error')
-      ? 'Google authentication failed. Please try again.'
+      ? 'Google sign-in could not be completed. If you use a password for this account, sign in with your password.'
       : '';
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,10 +62,12 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      await api.post('/auth/login', {
+      const response = await api.post('/auth/login', {
         email: trimmedEmail,
         password,
       });
+      requireJsonResponse(response, (data) => typeof data?.email === 'string'
+        && ['ADMIN', 'DOCTOR', 'PATIENT'].includes(data.role));
 
       let refreshedUser;
       try {
@@ -110,8 +113,7 @@ export default function LoginPage() {
         }
       } else {
         setErrorMessage(
-          err.response?.data?.message ||
-            'Unable to connect to the server. Please try again later.',
+          mutationErrorMessage(err, 'Unable to connect to the server. Please try again later.'),
         );
       }
     }
@@ -135,9 +137,9 @@ export default function LoginPage() {
           <p>Access your Hospital Management account</p>
         </div>
 
-        {errorMessage && (
+        {(errorMessage || sessionExpired) && (
           <div className="login-error" role="alert">
-            {errorMessage}
+            {errorMessage || 'Your session expired. Sign in again to continue.'}
           </div>
         )}
 

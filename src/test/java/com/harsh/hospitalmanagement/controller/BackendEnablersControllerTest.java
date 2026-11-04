@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.test.context.support.WithMockUser;
+import com.harsh.hospitalmanagement.security.WithLocalUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -19,6 +19,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 
+import static com.harsh.hospitalmanagement.security.WithLocalUser.Factory.account;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -74,11 +75,11 @@ class BackendEnablersControllerTest {
     @Test
     void getSpecializationById_shouldRequireAuthentication_whenUnauthenticated() throws Exception {
         mockMvc.perform(get("/api/specializations/1"))
-                .andExpect(status().is3xxRedirection());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
-    @WithMockUser(username = "patient@test.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@test.com", roles = "PATIENT")
     void getSpecializationById_shouldReturn200_whenAuthenticated() throws Exception {
         Specialization s = new Specialization();
         s.setId(1L);
@@ -94,7 +95,7 @@ class BackendEnablersControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "patient@test.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@test.com", roles = "PATIENT")
     void getAllDoctors_shouldReturn200_whenAuthenticated() throws Exception {
         User u = new User();
         u.setId(2L);
@@ -123,7 +124,7 @@ class BackendEnablersControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "patient@test.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@test.com", roles = "PATIENT")
     void getMyPatientProfile_shouldReturn200_whenAuthenticated() throws Exception {
         User u = new User();
         u.setId(3L);
@@ -136,7 +137,7 @@ class BackendEnablersControllerTest {
         p.setLastName("Patient");
         p.setUser(u);
 
-        when(patientService.getPatientByEmail("patient@test.com")).thenReturn(p);
+        when(patientService.getPatientByUserId(account("patient@test.com").id())).thenReturn(p);
 
         mockMvc.perform(get("/api/patients/me"))
                 .andExpect(status().isOk())
@@ -145,7 +146,7 @@ class BackendEnablersControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "patient@test.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@test.com", roles = "PATIENT")
     void getAvailableSlots_shouldReturn200_whenAuthenticated() throws Exception {
         User u = new User();
         u.setId(2L);

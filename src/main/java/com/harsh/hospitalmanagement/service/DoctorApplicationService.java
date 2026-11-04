@@ -84,9 +84,9 @@ public class DoctorApplicationService {
      * submits a doctor application without re-creating their account.
      */
     @Transactional
-    public DoctorApplication applyForDoctor(DoctorApplyRequest request, String authenticatedEmail) {
+    public DoctorApplication applyForDoctor(DoctorApplyRequest request, Long userId) {
 
-        User user = userRepository.findByEmail(authenticatedEmail)
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         if (user.getRole() == Role.DOCTOR) {
@@ -138,7 +138,7 @@ public class DoctorApplicationService {
      * Approves a pending application: promotes User to DOCTOR and creates Doctor profile.
      */
     @Transactional
-    public DoctorApplication approveApplication(Long id, String adminEmail) {
+    public DoctorApplication approveApplication(Long id, Long adminId) {
 
         DoctorApplication application = doctorApplicationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor application not found"));
@@ -147,7 +147,7 @@ public class DoctorApplicationService {
             throw new BadRequestException("Only pending applications can be approved");
         }
 
-        User adminUser = userRepository.findByEmail(adminEmail)
+        User adminUser = userRepository.findById(adminId)
                 .orElseThrow(() -> new ResourceNotFoundException("Admin user not found"));
 
         // Promote the applicant's role
@@ -177,7 +177,7 @@ public class DoctorApplicationService {
      * Rejects a pending application. The user remains PATIENT; no Doctor profile is created.
      */
     @Transactional
-    public DoctorApplication rejectApplication(Long id, String reason, String adminEmail) {
+    public DoctorApplication rejectApplication(Long id, String reason, Long adminId) {
 
         DoctorApplication application = doctorApplicationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor application not found"));
@@ -186,7 +186,7 @@ public class DoctorApplicationService {
             throw new BadRequestException("Only pending applications can be rejected");
         }
 
-        User adminUser = userRepository.findByEmail(adminEmail)
+        User adminUser = userRepository.findById(adminId)
                 .orElseThrow(() -> new ResourceNotFoundException("Admin user not found"));
 
         // User role intentionally NOT changed — stays PATIENT
@@ -201,9 +201,9 @@ public class DoctorApplicationService {
     /**
      * Allows an applicant to check the status of their own application.
      */
-    public DoctorApplication getMyApplication(String authenticatedEmail) {
+    public DoctorApplication getMyApplication(Long userId) {
 
-        User user = userRepository.findByEmail(authenticatedEmail)
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         return doctorApplicationRepository.findByUser_Id(user.getId())

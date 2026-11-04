@@ -1,5 +1,6 @@
 package com.harsh.hospitalmanagement.controller;
 
+import com.harsh.hospitalmanagement.security.LocalAccount;
 import com.harsh.hospitalmanagement.dto.*;
 import com.harsh.hospitalmanagement.entity.*;
 import com.harsh.hospitalmanagement.service.AppointmentService;
@@ -31,7 +32,7 @@ public class AppointmentController {
                 request.getDoctorId(),
                 request.getSlotId(),
                 request.getReason(),
-                authentication.getName()
+                LocalAccount.require(authentication)
         );
 
         return ResponseEntity.ok(toResponse(appointment));
@@ -44,7 +45,7 @@ public class AppointmentController {
 
         List<Appointment> appointments =
                 appointmentService.getAppointments(
-                        authentication.getName(),
+                        LocalAccount.require(authentication),
                         role
                 );
 
@@ -65,7 +66,7 @@ public class AppointmentController {
         Appointment appointment =
                 appointmentService.getAppointmentById(
                         id,
-                        authentication.getName(),
+                        LocalAccount.require(authentication),
                         role
                 );
 
@@ -164,7 +165,7 @@ public class AppointmentController {
 
         Appointment appointment = appointmentService.cancelAppointment(
                 id,
-                authentication.getName(),
+                LocalAccount.require(authentication),
                 role
         );
 
@@ -179,7 +180,7 @@ public class AppointmentController {
 
         Appointment appointment = appointmentService.completeAppointment(
                 id,
-                authentication.getName(),
+                LocalAccount.require(authentication),
                 role
         );
 

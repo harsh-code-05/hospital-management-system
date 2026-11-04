@@ -1,5 +1,6 @@
 package com.harsh.hospitalmanagement.service;
 
+import com.harsh.hospitalmanagement.security.LocalAccount;
 import com.harsh.hospitalmanagement.dto.DoctorAvailabilityRequest;
 import com.harsh.hospitalmanagement.entity.Doctor;
 import com.harsh.hospitalmanagement.entity.DoctorAvailability;
@@ -43,15 +44,15 @@ public class DoctorAvailabilityService {
 
     public DoctorAvailability createAvailability(
             DoctorAvailabilityRequest request,
-            String authenticatedEmail,
+            LocalAccount actor,
             boolean admin) {
         Doctor doctor = doctorRepository.findById(request.getDoctorId())
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found"));
 
         if (!admin) {
-            String doctorEmail = doctor.getUser().getEmail();
+            long doctorUserId = doctor.getUser().getId();
 
-            if (!doctorEmail.equals(authenticatedEmail)) {
+            if (doctorUserId != actor.id()) {
                 throw new ForbiddenException(
                         "You are not allowed to manage this doctor's availability");
             }
@@ -92,7 +93,7 @@ public class DoctorAvailabilityService {
 
         auditLogService.logEvent(
                 AuditEventType.DOCTOR_CREATED_AVAILABILITY,
-                authenticatedEmail,
+                actor.email(),
                 admin ? "ROLE_ADMIN" : "ROLE_DOCTOR",
                 "DoctorAvailability",
                 savedAvailability.getId(),
@@ -106,7 +107,7 @@ public class DoctorAvailabilityService {
     public DoctorAvailability updateAvailability(
             Long id,
             DoctorAvailabilityRequest request,
-            String authenticatedEmail,
+            LocalAccount actor,
             boolean admin) {
 
         DoctorAvailability availability = doctorAvailabilityRepository.findById(id)
@@ -115,9 +116,9 @@ public class DoctorAvailabilityService {
         Doctor doctor = availability.getDoctor();
 
         if (!admin) {
-            String doctorEmail = doctor.getUser().getEmail();
+            long doctorUserId = doctor.getUser().getId();
 
-            if (!doctorEmail.equals(authenticatedEmail)) {
+            if (doctorUserId != actor.id()) {
                 throw new ForbiddenException(
                         "You are not allowed to manage this doctor's availability");
             }
@@ -165,7 +166,7 @@ public class DoctorAvailabilityService {
 
         auditLogService.logEvent(
                 AuditEventType.DOCTOR_UPDATED_AVAILABILITY,
-                authenticatedEmail,
+                actor.email(),
                 admin ? "ROLE_ADMIN" : "ROLE_DOCTOR",
                 "DoctorAvailability",
                 savedAvailability.getId(),

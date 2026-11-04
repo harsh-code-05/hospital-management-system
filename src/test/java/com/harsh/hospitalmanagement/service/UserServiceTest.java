@@ -106,7 +106,7 @@ class UserServiceTest {
         String googleId = "google-sub-123";
 
         when(userRepository.findByGoogleId(googleId)).thenReturn(java.util.Optional.empty());
-        when(userRepository.findByEmail(email)).thenReturn(java.util.Optional.empty());
+        when(userRepository.existsByEmailIgnoreCase(email)).thenReturn(false);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         User user = userService.findOrCreateGoogleUser(email, googleId);
@@ -138,57 +138,23 @@ class UserServiceTest {
 
         when(userRepository.findByGoogleId(googleId)).thenReturn(java.util.Optional.of(existing));
 
-        User user = userService.findOrCreateGoogleUser(email, googleId);
+        User user = userService.findOrCreateGoogleUser("changed@example.com", googleId);
 
         assertThat(user).isSameAs(existing);
+        assertThat(user.getEmail()).isEqualTo(email);
         assertThat(user.getRole()).isEqualTo(Role.DOCTOR);
         verify(userRepository, never()).save(any(User.class));
     }
 
     @Test
-    void findOrCreateGoogleUser_shouldLinkGoogleIdPreservingRole_whenExistingUserHasNullGoogleId() {
-        String email = "staff@example.com";
-        String googleId = "google-sub-link";
+    void googleSignInRejectsEmailCollisionWithoutLinkingExistingAccount() {
+        String email = "existing@example.com";
+        when(userRepository.findByGoogleId("new-subject")).thenReturn(java.util.Optional.empty());
+        when(userRepository.existsByEmailIgnoreCase(email)).thenReturn(true);
 
-        User existing = new User();
-        existing.setId(6L);
-        existing.setEmail(email);
-        existing.setRole(Role.ADMIN);
-        existing.setGoogleId(null);
-
-        when(userRepository.findByGoogleId(googleId)).thenReturn(java.util.Optional.empty());
-        when(userRepository.findByEmail(email)).thenReturn(java.util.Optional.of(existing));
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        User user = userService.findOrCreateGoogleUser(email, googleId);
-
-        assertThat(user.getGoogleId()).isEqualTo(googleId);
-        assertThat(user.getRole()).isEqualTo(Role.ADMIN);
-
-        verify(userRepository).save(existing);
-        assertThat(existing.getGoogleId()).isEqualTo(googleId);
-        assertThat(existing.getRole()).isEqualTo(Role.ADMIN);
-    }
-
-    @Test
-    void findOrCreateGoogleUser_shouldThrowBadRequestException_whenExistingUserHasDifferentGoogleId() {
-        String email = "conflict@example.com";
-        String incomingGoogleId = "google-sub-new";
-        String existingGoogleId = "google-sub-existing";
-
-        User existing = new User();
-        existing.setId(7L);
-        existing.setEmail(email);
-        existing.setRole(Role.PATIENT);
-        existing.setGoogleId(existingGoogleId);
-
-        when(userRepository.findByGoogleId(incomingGoogleId)).thenReturn(java.util.Optional.empty());
-        when(userRepository.findByEmail(email)).thenReturn(java.util.Optional.of(existing));
-
-        assertThatThrownBy(() -> userService.findOrCreateGoogleUser(email, incomingGoogleId))
+        assertThatThrownBy(() -> userService.findOrCreateGoogleUser(email, "new-subject"))
                 .isInstanceOf(BadRequestException.class)
-                .hasMessage("Account is already linked to a different Google account");
-
+                .hasMessage("Google sign-in cannot be used for this account");
         verify(userRepository, never()).save(any(User.class));
     }
 

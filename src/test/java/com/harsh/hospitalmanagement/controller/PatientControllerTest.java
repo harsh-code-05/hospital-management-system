@@ -16,15 +16,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
+import com.harsh.hospitalmanagement.security.WithLocalUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 
+import static com.harsh.hospitalmanagement.security.WithLocalUser.Factory.account;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -47,10 +50,10 @@ class PatientControllerTest {
     private CustomOidcUserService customOidcUserService;
 
     @Test
-    @WithMockUser(username = "patient@example.com", roles = "PATIENT")
-    void createMyPatientProfile_shouldReturn200_whenValidRequestAndAuthenticatedPatient() throws Exception {
+    @WithLocalUser(username = "patient@example.com", roles = "PATIENT")
+    void createMyPatientProfileIgnoresForeignUserIdInBody() throws Exception {
         User user = new User();
-        user.setId(5L);
+        user.setId(account("patient@example.com").id());
         user.setEmail("patient@example.com");
         user.setRole(Role.PATIENT);
 
@@ -63,11 +66,12 @@ class PatientControllerTest {
         patient.setPhone("+1234567890");
         patient.setUser(user);
 
-        when(patientService.createMyPatientProfile(eq("patient@example.com"), any(PatientProfileRequest.class)))
+        when(patientService.createMyPatientProfile(eq(account("patient@example.com").id()), any(PatientProfileRequest.class)))
                 .thenReturn(patient);
 
         String json = """
                 {
+                    "userId": 5,
                     "firstName": "Alice",
                     "lastName": "Brown",
                     "dateOfBirth": "1992-04-15",
@@ -76,7 +80,7 @@ class PatientControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/patients/me")
+        mockMvc.perform(post("/api/patients/me").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isOk())
@@ -90,7 +94,7 @@ class PatientControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "patient@example.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@example.com", roles = "PATIENT")
     void createMyPatientProfile_shouldReturn400_whenMissingRequiredFields() throws Exception {
         String json = """
                 {
@@ -99,7 +103,7 @@ class PatientControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/patients/me")
+        mockMvc.perform(post("/api/patients/me").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isBadRequest())
@@ -108,7 +112,7 @@ class PatientControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "patient@example.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@example.com", roles = "PATIENT")
     void createMyPatientProfile_shouldReturn400_whenFutureDateOfBirth() throws Exception {
         String tomorrow = LocalDate.now().plusDays(1).toString();
         String json = String.format("""
@@ -121,7 +125,7 @@ class PatientControllerTest {
                 }
                 """, tomorrow);
 
-        mockMvc.perform(post("/api/patients/me")
+        mockMvc.perform(post("/api/patients/me").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isBadRequest())
@@ -130,7 +134,7 @@ class PatientControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "patient@example.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@example.com", roles = "PATIENT")
     void createMyPatientProfile_shouldReturn400_whenInvalidPhone() throws Exception {
         String json = """
                 {
@@ -142,7 +146,7 @@ class PatientControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/patients/me")
+        mockMvc.perform(post("/api/patients/me").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isBadRequest())
@@ -151,7 +155,7 @@ class PatientControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "patient@example.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@example.com", roles = "PATIENT")
     void createMyPatientProfile_shouldReturn400_whenInvalidGender() throws Exception {
         String json = """
                 {
@@ -163,7 +167,7 @@ class PatientControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/patients/me")
+        mockMvc.perform(post("/api/patients/me").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isBadRequest())
@@ -183,14 +187,14 @@ class PatientControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/patients/me")
+        mockMvc.perform(post("/api/patients/me").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
-                .andExpect(status().is3xxRedirection());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
-    @WithMockUser(username = "doctor@example.com", roles = "DOCTOR")
+    @WithLocalUser(username = "doctor@example.com", roles = "DOCTOR")
     void createMyPatientProfile_shouldReturn403_whenWrongRoleDoctor() throws Exception {
         String json = """
                 {
@@ -202,14 +206,14 @@ class PatientControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/patients/me")
+        mockMvc.perform(post("/api/patients/me").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithMockUser(username = "admin@example.com", roles = "ADMIN")
+    @WithLocalUser(username = "admin@example.com", roles = "ADMIN")
     void createMyPatientProfile_shouldReturn403_whenWrongRoleAdmin() throws Exception {
         String json = """
                 {
@@ -221,16 +225,16 @@ class PatientControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/patients/me")
+        mockMvc.perform(post("/api/patients/me").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithMockUser(username = "patient@example.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@example.com", roles = "PATIENT")
     void createMyPatientProfile_shouldReturn409_whenProfileAlreadyExists() throws Exception {
-        when(patientService.createMyPatientProfile(eq("patient@example.com"), any(PatientProfileRequest.class)))
+        when(patientService.createMyPatientProfile(eq(account("patient@example.com").id()), any(PatientProfileRequest.class)))
                 .thenThrow(new ConflictException("Patient profile already exists for this user"));
 
         String json = """
@@ -243,7 +247,7 @@ class PatientControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/patients/me")
+        mockMvc.perform(post("/api/patients/me").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isConflict())
@@ -252,7 +256,7 @@ class PatientControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "patient@example.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@example.com", roles = "PATIENT")
     void getMyPatientProfile_shouldReturn200_whenProfileExists() throws Exception {
         User user = new User();
         user.setId(5L);
@@ -268,7 +272,7 @@ class PatientControllerTest {
         patient.setPhone("+1234567890");
         patient.setUser(user);
 
-        when(patientService.getPatientByEmail("patient@example.com")).thenReturn(patient);
+        when(patientService.getPatientByUserId(account("patient@example.com").id())).thenReturn(patient);
 
         mockMvc.perform(get("/api/patients/me"))
                 .andExpect(status().isOk())
@@ -278,14 +282,33 @@ class PatientControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "patient@example.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@example.com", roles = "PATIENT")
     void getMyPatientProfile_shouldReturn404_whenProfileNotFound() throws Exception {
-        when(patientService.getPatientByEmail("patient@example.com"))
+        when(patientService.getPatientByUserId(account("patient@example.com").id()))
                 .thenThrow(new ResourceNotFoundException("Patient profile not found for user"));
 
         mockMvc.perform(get("/api/patients/me"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.message").value("Patient profile not found for user"));
+    }
+    @Test
+    @WithLocalUser(username = "attacker@test.invalid", roles = "PATIENT")
+    void patientCannotCreateAProfileForAnotherAccount() throws Exception {
+        mockMvc.perform(post("/api/patients").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"userId":42,"firstName":"Wrong","lastName":"Owner",
+                                 "dateOfBirth":"1990-01-01","gender":"OTHER","phone":"+1234567890"}
+                                """))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(patientService);
+    }
+
+    @Test
+    @WithLocalUser(username = "patient@example.com", roles = "PATIENT")
+    void patientProfileMutationWithoutCsrfIsRejected() throws Exception {
+        mockMvc.perform(post("/api/patients/me").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(patientService);
     }
 }

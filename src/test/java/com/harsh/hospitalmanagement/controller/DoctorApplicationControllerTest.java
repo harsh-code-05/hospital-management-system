@@ -18,13 +18,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
+import com.harsh.hospitalmanagement.security.WithLocalUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static com.harsh.hospitalmanagement.security.WithLocalUser.Factory.account;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -97,7 +99,7 @@ class DoctorApplicationControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/doctor-applications/register")
+        mockMvc.perform(post("/api/doctor-applications/register").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isOk())
@@ -115,7 +117,7 @@ class DoctorApplicationControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/doctor-applications/register")
+        mockMvc.perform(post("/api/doctor-applications/register").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isBadRequest());
@@ -139,7 +141,7 @@ class DoctorApplicationControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/doctor-applications/register")
+        mockMvc.perform(post("/api/doctor-applications/register").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isBadRequest())
@@ -151,10 +153,10 @@ class DoctorApplicationControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
-    @WithMockUser(username = "patient@example.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@example.com", roles = "PATIENT")
     void applyForDoctor_shouldReturn200_whenAuthenticatedPatient() throws Exception {
 
-        when(doctorApplicationService.applyForDoctor(any(DoctorApplyRequest.class), anyString()))
+        when(doctorApplicationService.applyForDoctor(any(DoctorApplyRequest.class), anyLong()))
                 .thenReturn(buildApplication());
 
         String json = """
@@ -167,7 +169,7 @@ class DoctorApplicationControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/doctor-applications/apply")
+        mockMvc.perform(post("/api/doctor-applications/apply").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isOk())
@@ -187,10 +189,10 @@ class DoctorApplicationControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/doctor-applications/apply")
+        mockMvc.perform(post("/api/doctor-applications/apply").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
-                .andExpect(status().is3xxRedirection());
+                .andExpect(status().isUnauthorized());
     }
 
     // -----------------------------------------------------------------------
@@ -198,7 +200,7 @@ class DoctorApplicationControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
-    @WithMockUser(username = "admin@example.com", roles = "ADMIN")
+    @WithLocalUser(username = "admin@example.com", roles = "ADMIN")
     void getPendingApplications_shouldReturn200_whenCallerIsAdmin() throws Exception {
 
         when(doctorApplicationService.getPendingApplications())
@@ -210,7 +212,7 @@ class DoctorApplicationControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "patient@example.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@example.com", roles = "PATIENT")
     void getPendingApplications_shouldReturn403_whenCallerIsPatient() throws Exception {
 
         mockMvc.perform(get("/api/doctor-applications/pending"))
@@ -221,7 +223,7 @@ class DoctorApplicationControllerTest {
     void getPendingApplications_shouldReturn401_whenUnauthenticated() throws Exception {
 
         mockMvc.perform(get("/api/doctor-applications/pending"))
-                .andExpect(status().is3xxRedirection());
+                .andExpect(status().isUnauthorized());
     }
 
     // -----------------------------------------------------------------------
@@ -229,7 +231,7 @@ class DoctorApplicationControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
-    @WithMockUser(username = "admin@example.com", roles = "ADMIN")
+    @WithLocalUser(username = "admin@example.com", roles = "ADMIN")
     void getApplicationById_shouldReturn200_whenCallerIsAdmin() throws Exception {
 
         when(doctorApplicationService.getApplicationById(1L))
@@ -241,7 +243,7 @@ class DoctorApplicationControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "patient@example.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@example.com", roles = "PATIENT")
     void getApplicationById_shouldReturn403_whenCallerIsPatient() throws Exception {
 
         mockMvc.perform(get("/api/doctor-applications/1"))
@@ -249,7 +251,7 @@ class DoctorApplicationControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "admin@example.com", roles = "ADMIN")
+    @WithLocalUser(username = "admin@example.com", roles = "ADMIN")
     void getApplicationById_shouldReturn404_whenNotFound() throws Exception {
 
         when(doctorApplicationService.getApplicationById(999L))
@@ -265,33 +267,33 @@ class DoctorApplicationControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
-    @WithMockUser(username = "admin@example.com", roles = "ADMIN")
+    @WithLocalUser(username = "admin@example.com", roles = "ADMIN")
     void approveApplication_shouldReturn200_whenCallerIsAdmin() throws Exception {
 
         DoctorApplication approved = buildApplication();
         approved.setStatus(ApplicationStatus.APPROVED);
 
-        when(doctorApplicationService.approveApplication(eq(1L), anyString()))
+        when(doctorApplicationService.approveApplication(eq(1L), anyLong()))
                 .thenReturn(approved);
 
-        mockMvc.perform(patch("/api/doctor-applications/1/approve"))
+        mockMvc.perform(patch("/api/doctor-applications/1/approve").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("APPROVED"));
     }
 
     @Test
-    @WithMockUser(username = "patient@example.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@example.com", roles = "PATIENT")
     void approveApplication_shouldReturn403_whenCallerIsPatient() throws Exception {
 
-        mockMvc.perform(patch("/api/doctor-applications/1/approve"))
+        mockMvc.perform(patch("/api/doctor-applications/1/approve").with(csrf()))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void approveApplication_shouldReturn401_whenUnauthenticated() throws Exception {
 
-        mockMvc.perform(patch("/api/doctor-applications/1/approve"))
-                .andExpect(status().is3xxRedirection());
+        mockMvc.perform(patch("/api/doctor-applications/1/approve").with(csrf()))
+                .andExpect(status().isUnauthorized());
     }
 
     // -----------------------------------------------------------------------
@@ -299,21 +301,21 @@ class DoctorApplicationControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
-    @WithMockUser(username = "admin@example.com", roles = "ADMIN")
+    @WithLocalUser(username = "admin@example.com", roles = "ADMIN")
     void rejectApplication_shouldReturn200_whenCallerIsAdmin() throws Exception {
 
         DoctorApplication rejected = buildApplication();
         rejected.setStatus(ApplicationStatus.REJECTED);
         rejected.setRejectionReason("Insufficient credentials");
 
-        when(doctorApplicationService.rejectApplication(eq(1L), anyString(), anyString()))
+        when(doctorApplicationService.rejectApplication(eq(1L), anyString(), anyLong()))
                 .thenReturn(rejected);
 
         String json = """
                 { "reason": "Insufficient credentials" }
                 """;
 
-        mockMvc.perform(patch("/api/doctor-applications/1/reject")
+        mockMvc.perform(patch("/api/doctor-applications/1/reject").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isOk())
@@ -322,14 +324,14 @@ class DoctorApplicationControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "patient@example.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@example.com", roles = "PATIENT")
     void rejectApplication_shouldReturn403_whenCallerIsPatient() throws Exception {
 
         String json = """
                 { "reason": "some reason" }
                 """;
 
-        mockMvc.perform(patch("/api/doctor-applications/1/reject")
+        mockMvc.perform(patch("/api/doctor-applications/1/reject").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isForbidden());
@@ -342,10 +344,10 @@ class DoctorApplicationControllerTest {
                 { "reason": "some reason" }
                 """;
 
-        mockMvc.perform(patch("/api/doctor-applications/1/reject")
+        mockMvc.perform(patch("/api/doctor-applications/1/reject").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
-                .andExpect(status().is3xxRedirection());
+                .andExpect(status().isUnauthorized());
     }
 
     // -----------------------------------------------------------------------
@@ -353,10 +355,10 @@ class DoctorApplicationControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
-    @WithMockUser(username = "patient@example.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@example.com", roles = "PATIENT")
     void getMyApplication_shouldReturn200_whenAuthenticated() throws Exception {
 
-        when(doctorApplicationService.getMyApplication("patient@example.com"))
+        when(doctorApplicationService.getMyApplication(account("patient@example.com").id()))
                 .thenReturn(buildApplication());
 
         mockMvc.perform(get("/api/doctor-applications/me"))
@@ -368,6 +370,6 @@ class DoctorApplicationControllerTest {
     void getMyApplication_shouldReturn401_whenUnauthenticated() throws Exception {
 
         mockMvc.perform(get("/api/doctor-applications/me"))
-                .andExpect(status().is3xxRedirection());
+                .andExpect(status().isUnauthorized());
     }
 }

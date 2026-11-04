@@ -46,7 +46,7 @@ class CustomUserDetailsServiceTest {
                 userDetailsService.loadUserByUsername("patient@gmail.com");
 
         assertThat(userDetails.getUsername())
-                .isEqualTo("patient@gmail.com");
+                .isEqualTo("1");
 
         assertThat(userDetails.getPassword())
                 .isEqualTo("$2a$10$examplehashedpassword");
@@ -67,8 +67,19 @@ class CustomUserDetailsServiceTest {
         assertThatThrownBy(() ->
                 userDetailsService.loadUserByUsername("unknown@gmail.com"))
                 .isInstanceOf(UsernameNotFoundException.class)
-                .hasMessage("User not found: unknown@gmail.com");
+                .hasMessage("Invalid email or password");
 
         verify(userRepository).findByEmail("unknown@gmail.com");
+    }
+    @Test
+    void legacyGoogleLinkDisablesPasswordAuthenticationEvenWithStoredHash() {
+        User user = new User();
+        user.setGoogleId("legacy-google-subject");
+        user.setPassword("legacy-hash");
+        when(userRepository.findByEmail("linked@test.invalid")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userDetailsService.loadUserByUsername("linked@test.invalid"))
+                .isInstanceOf(UsernameNotFoundException.class)
+                .hasMessage("Invalid email or password");
     }
 }

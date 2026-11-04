@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Optional;
 
+import static com.harsh.hospitalmanagement.security.WithLocalUser.Factory.account;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
@@ -51,6 +52,7 @@ class DoctorAvailabilityServiceTest {
     private Doctor createDoctor(Long id, String email) {
         User user = new User();
         user.setEmail(email);
+        user.setId(account(email).id());
         user.setRole(Role.DOCTOR);
 
         Doctor doctor = new Doctor();
@@ -77,7 +79,7 @@ class DoctorAvailabilityServiceTest {
         req.setStartTime(LocalTime.of(9, 0));
         req.setEndTime(LocalTime.of(12, 0));
 
-        DoctorAvailability saved = service.createAvailability(req, "doc@test.com", false);
+        DoctorAvailability saved = service.createAvailability(req, account("doc@test.com"), false);
 
         assertThat(saved.getId()).isEqualTo(10L);
         verify(auditLogService).logEvent(
@@ -102,7 +104,7 @@ class DoctorAvailabilityServiceTest {
         req.setStartTime(LocalTime.of(12, 0));
         req.setEndTime(LocalTime.of(9, 0)); // invalid: end before start
 
-        assertThatThrownBy(() -> service.createAvailability(req, "doc@test.com", false))
+        assertThatThrownBy(() -> service.createAvailability(req, account("doc@test.com"), false))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("Start time must be before end time");
 
@@ -131,7 +133,7 @@ class DoctorAvailabilityServiceTest {
         req.setStartTime(LocalTime.of(10, 0));
         req.setEndTime(LocalTime.of(14, 0));
 
-        DoctorAvailability updated = service.updateAvailability(5L, req, "doc@test.com", false);
+        DoctorAvailability updated = service.updateAvailability(5L, req, account("doc@test.com"), false);
 
         assertThat(updated.getDate()).isEqualTo(LocalDate.now().plusDays(3));
         verify(auditLogService).logEvent(
@@ -157,7 +159,7 @@ class DoctorAvailabilityServiceTest {
         DoctorAvailabilityRequest req = new DoctorAvailabilityRequest();
         req.setDoctorId(1L);
 
-        assertThatThrownBy(() -> service.updateAvailability(5L, req, "other@test.com", false))
+        assertThatThrownBy(() -> service.updateAvailability(5L, req, account("other@test.com"), false))
                 .isInstanceOf(ForbiddenException.class);
 
         verify(doctorAvailabilityRepository, never()).save(any());

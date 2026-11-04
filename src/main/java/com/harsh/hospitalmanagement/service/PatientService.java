@@ -57,7 +57,7 @@ public class PatientService {
 
     public Patient getPatientByIdForUser(
             Long patientId,
-            String authenticatedEmail,
+            Long userId,
             boolean admin) {
 
         Patient patient = patientRepository.findById(patientId)
@@ -68,9 +68,7 @@ public class PatientService {
             return patient;
         }
 
-        String patientEmail = patient.getUser().getEmail();
-
-        if (!patientEmail.equals(authenticatedEmail)) {
+        if (!userId.equals(patient.getUser().getId())) {
             throw new ForbiddenException(
                     "You are not allowed to access this patient");
         }
@@ -78,20 +76,20 @@ public class PatientService {
         return patient;
     }
 
-    public Patient getPatientByEmail(String email) {
-        return patientRepository.findByUser_Email(email)
+    public Patient getPatientByUserId(Long userId) {
+        return patientRepository.findByUser_Id(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient profile not found for user"));
     }
 
-    public Patient createMyPatientProfile(String email, PatientProfileRequest request) {
-        User user = userRepository.findByEmail(email)
+    public Patient createMyPatientProfile(Long userId, PatientProfileRequest request) {
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         if (user.getRole() != Role.PATIENT) {
             throw new ForbiddenException("Only users with role PATIENT can create a patient profile");
         }
 
-        if (patientRepository.findByUser_Email(email).isPresent()) {
+        if (patientRepository.findByUser_Id(userId).isPresent()) {
             throw new ConflictException("Patient profile already exists for this user");
         }
 

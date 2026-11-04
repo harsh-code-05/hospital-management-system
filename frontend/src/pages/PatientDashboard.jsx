@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
+import { mutationErrorMessage, requireAppointmentResult, requirePatientProfileResult } from '../api/responseValidation';
 import { useAuth } from '../context/useAuth';
 import './PatientDashboard.css';
 
@@ -40,11 +41,14 @@ function getTodayIso() {
 }
 
 export default function PatientDashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, formDrafts } = useAuth();
   const navigate = useNavigate();
+  const [bookingDraft] = useState(() => formDrafts.get(user.id, 'booking'));
+  const [profileDraft] = useState(() => formDrafts.get(user.id, 'patientProfile'));
+  const restoredSlotsRequest = useRef(null);
 
   // Active view tab
-  const [activeTab, setActiveTab] = useState('appointments');
+  const [activeTab, setActiveTab] = useState(bookingDraft ? 'book' : profileDraft ? 'profile' : 'appointments');
 
   // Patient profile state
   const [patientProfile, setPatientProfile] = useState(null);
@@ -52,7 +56,7 @@ export default function PatientDashboard() {
   const [profileLoading, setProfileLoading] = useState(true);
 
   // Profile completion form state
-  const [profileForm, setProfileForm] = useState({
+  const [profileForm, setProfileForm] = useState(profileDraft ?? {
     firstName: '',
     lastName: '',
     dateOfBirth: '',
@@ -80,13 +84,13 @@ export default function PatientDashboard() {
   // Booking wizard state
   const [specializations, setSpecializations] = useState([]);
   const [doctors, setDoctors] = useState([]);
-  const [selectedSpecialtyId, setSelectedSpecialtyId] = useState('all');
-  const [selectedDoctorId, setSelectedDoctorId] = useState('');
-  const [selectedDate, setSelectedDate] = useState(getTodayIso());
+  const [selectedSpecialtyId, setSelectedSpecialtyId] = useState(bookingDraft?.selectedSpecialtyId ?? 'all');
+  const [selectedDoctorId, setSelectedDoctorId] = useState(bookingDraft?.selectedDoctorId ?? '');
+  const [selectedDate, setSelectedDate] = useState(bookingDraft?.selectedDate ?? getTodayIso());
   const [availableSlots, setAvailableSlots] = useState([]);
-  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsLoading, setSlotsLoading] = useState(Boolean(bookingDraft?.selectedDoctorId));
   const [selectedSlotId, setSelectedSlotId] = useState(null);
-  const [bookingReason, setBookingReason] = useState('');
+  const [bookingReason, setBookingReason] = useState(bookingDraft?.bookingReason ?? '');
   const [isBooking, setIsBooking] = useState(false);
   const [bookingError, setBookingError] = useState('');
   const [bookingSuccess, setBookingSuccess] = useState('');
@@ -141,25 +145,43 @@ export default function PatientDashboard() {
   }, []);
 
   // 4. Fetch Slots for Selected Doctor and Date
-  const fetchSlots = useCallback(async (doctorId, date) => {
+  const loadSlots = useCallback((doctorId, date, slotToRestore = null, signal) => {
+    const params = { doctorId };
+    if (date) params.date = date;
+    return api.get('/appointment-slots/available', { params, signal }).then((res) => {
+      if (signal?.aborted) return;
+      const slots = Array.isArray(res.data) ? res.data : [];
+      setAvailableSlots(slots);
+      if (slotToRestore && slots.some((slot) => slot.id === slotToRestore)) {
+        setSelectedSlotId(slotToRestore);
+      }
+    }).catch((err) => {
+      if (signal?.aborted) return;
+      console.error('Failed to load available slots:', err);
+      setAvailableSlots([]);
+    }).finally(() => {
+      if (!signal?.aborted) setSlotsLoading(false);
+    });
+  }, []);
+
+  const fetchSlots = (doctorId, date) => {
+    restoredSlotsRequest.current?.abort();
     if (!doctorId) {
       setAvailableSlots([]);
       return;
     }
     setSlotsLoading(true);
     setSelectedSlotId(null);
-    try {
-      const params = { doctorId };
-      if (date) params.date = date;
-      const res = await api.get('/appointment-slots/available', { params });
-      setAvailableSlots(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error('Failed to load available slots:', err);
-      setAvailableSlots([]);
-    } finally {
-      setSlotsLoading(false);
-    }
-  }, []);
+    return loadSlots(doctorId, date);
+  };
+
+  useEffect(() => {
+    if (!bookingDraft?.selectedDoctorId) return;
+    const request = new AbortController();
+    restoredSlotsRequest.current = request;
+    loadSlots(bookingDraft.selectedDoctorId, bookingDraft.selectedDate, bookingDraft.selectedSlotId, request.signal);
+    return () => request.abort();
+  }, [bookingDraft, loadSlots]);
 
   // Initial Data Load
   useEffect(() => {
@@ -198,7 +220,8 @@ export default function PatientDashboard() {
     setIsCancelling(true);
     setCancelError('');
     try {
-      await api.patch(`/appointments/${cancellingAppt.id}/cancel`);
+      const response = await api.patch(`/appointments/${cancellingAppt.id}/cancel`);
+      requireAppointmentResult(response, 'CANCELLED', (data) => data.id === cancellingAppt.id);
       setGlobalNotice(
         `Appointment #${cancellingAppt.id} was successfully cancelled.`,
       );
@@ -209,8 +232,7 @@ export default function PatientDashboard() {
       }
     } catch (err) {
       setCancelError(
-        err.response?.data?.message ||
-          'Failed to cancel appointment. Please try again.',
+        mutationErrorMessage(err, 'Failed to cancel appointment. Please try again.'),
       );
     } finally {
       setIsCancelling(false);
@@ -265,15 +287,18 @@ export default function PatientDashboard() {
     }
     setProfileFormErrors({});
     setIsSubmittingProfile(true);
+    formDrafts.save(user.id, 'patientProfile', profileForm);
 
     try {
-      await api.post('/patients/me', {
+      const response = await api.post('/patients/me', {
         firstName: profileForm.firstName.trim(),
         lastName: profileForm.lastName.trim(),
         dateOfBirth: profileForm.dateOfBirth,
         gender: profileForm.gender,
         phone: profileForm.phone.trim(),
       });
+      requirePatientProfileResult(response, user.id);
+      formDrafts.discard(user.id, 'patientProfile', profileForm);
 
       setGlobalNotice('Patient profile completed successfully! You can now book appointments.');
       await fetchProfile();
@@ -287,7 +312,7 @@ export default function PatientDashboard() {
         setProfileFormErrors(err.response.data.errors);
       } else {
         setProfileSubmitError(
-          err.response?.data?.message || 'Failed to complete profile. Please try again.',
+          mutationErrorMessage(err, 'Failed to complete profile. Please try again.'),
         );
       }
     } finally {
@@ -324,25 +349,30 @@ export default function PatientDashboard() {
     }
 
     setIsBooking(true);
+    const draft = { selectedSpecialtyId, selectedDoctorId, selectedDate, selectedSlotId, bookingReason };
+    formDrafts.save(user.id, 'booking', draft);
     try {
-      const res = await api.post('/appointments', {
+      const request = {
         patientId: patientProfile.id,
         doctorId: Number(selectedDoctorId),
         slotId: Number(selectedSlotId),
         reason: bookingReason.trim(),
-      });
-
-      setBookingSuccess(
-        `Appointment #${res.data?.id || ''} confirmed successfully!`,
+      };
+      const response = await api.post('/appointments', request);
+      const booked = requireAppointmentResult(response, 'CONFIRMED', (data) =>
+        data.patient?.id === request.patientId && data.doctor?.id === request.doctorId
+        && data.slot?.id === request.slotId,
       );
+      formDrafts.discard(user.id, 'booking', draft);
+
+      setBookingSuccess(`Appointment #${booked.id} confirmed successfully!`);
       setSelectedSlotId(null);
       setBookingReason('');
       await fetchAppointments();
       fetchSlots(selectedDoctorId, selectedDate);
     } catch (err) {
       setBookingError(
-        err.response?.data?.message ||
-          'Failed to book appointment. Please check availability and try again.',
+        mutationErrorMessage(err, 'Failed to book appointment. Please check availability and try again.'),
       );
     } finally {
       setIsBooking(false);
@@ -698,6 +728,8 @@ export default function PatientDashboard() {
                   className="form-control"
                   value={selectedSpecialtyId}
                   onChange={(e) => {
+                    restoredSlotsRequest.current?.abort();
+                    setSlotsLoading(false);
                     setSelectedSpecialtyId(e.target.value);
                     setSelectedDoctorId('');
                     setAvailableSlots([]);
@@ -728,6 +760,8 @@ export default function PatientDashboard() {
                     if (docId) {
                       fetchSlots(docId, selectedDate);
                     } else {
+                      restoredSlotsRequest.current?.abort();
+                      setSlotsLoading(false);
                       setAvailableSlots([]);
                     }
                   }}

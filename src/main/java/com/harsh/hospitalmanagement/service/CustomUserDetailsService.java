@@ -2,6 +2,7 @@ package com.harsh.hospitalmanagement.service;
 
 import com.harsh.hospitalmanagement.entity.User;
 import com.harsh.hospitalmanagement.repository.UserRepository;
+import com.harsh.hospitalmanagement.security.LocalAccount;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -21,14 +22,11 @@ public class CustomUserDetailsService implements UserDetailsService {
             throws UsernameNotFoundException {
 
         User user = userRepository.findByEmail(email)
+                .filter(candidate -> candidate.getGoogleId() == null && candidate.getPassword() != null)
                 .orElseThrow(() ->
-                        new UsernameNotFoundException(
-                                "User not found: " + email));
+                        new UsernameNotFoundException("Invalid email or password"));
 
-        return org.springframework.security.core.userdetails.User
-                .withUsername(user.getEmail())
-                .password(user.getPassword())
-                .roles(user.getRole().name())
-                .build();
+        return new LocalAccount.PasswordPrincipal(
+                new LocalAccount(user.getId(), user.getEmail()), user.getPassword(), user.getRole());
     }
 }

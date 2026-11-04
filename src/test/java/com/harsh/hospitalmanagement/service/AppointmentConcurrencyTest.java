@@ -38,6 +38,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.harsh.hospitalmanagement.security.WithLocalUser.Factory.account;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -144,8 +145,8 @@ class AppointmentConcurrencyTest {
 
     private Appointment transition(Long appointmentId, boolean completes) {
         return completes
-                ? appointmentService.completeAppointment(appointmentId, "admin@test.invalid", "ROLE_ADMIN")
-                : appointmentService.cancelAppointment(appointmentId, "admin@test.invalid", "ROLE_ADMIN");
+                ? appointmentService.completeAppointment(appointmentId, account("admin@test.invalid"), "ROLE_ADMIN")
+                : appointmentService.cancelAppointment(appointmentId, account("admin@test.invalid"), "ROLE_ADMIN");
     }
 
     private Long createConfirmedAppointment() {

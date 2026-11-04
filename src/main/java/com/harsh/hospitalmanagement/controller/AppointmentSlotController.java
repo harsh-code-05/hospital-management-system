@@ -1,5 +1,6 @@
 package com.harsh.hospitalmanagement.controller;
 
+import com.harsh.hospitalmanagement.security.LocalAccount;
 import com.harsh.hospitalmanagement.dto.AppointmentSlotResponse;
 import com.harsh.hospitalmanagement.dto.DoctorResponse;
 import com.harsh.hospitalmanagement.dto.SpecializationResponse;
@@ -100,7 +101,7 @@ public class AppointmentSlotController {
         List<AppointmentSlot> slots =
                 appointmentSlotService.generateSlots(
                         availabilityId,
-                        authentication.getName(),
+                        LocalAccount.require(authentication),
                         admin);
 
         List<AppointmentSlotResponse> responses =

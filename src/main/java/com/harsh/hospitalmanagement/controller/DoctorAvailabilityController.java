@@ -1,5 +1,6 @@
 package com.harsh.hospitalmanagement.controller;
 
+import com.harsh.hospitalmanagement.security.LocalAccount;
 import com.harsh.hospitalmanagement.dto.DoctorAvailabilityRequest;
 import com.harsh.hospitalmanagement.dto.DoctorAvailabilityResponse;
 import com.harsh.hospitalmanagement.dto.DoctorResponse;
@@ -34,7 +35,7 @@ public class DoctorAvailabilityController {
         DoctorAvailability availability =
                 doctorAvailabilityService.createAvailability(
                         request,
-                        authentication.getName(),
+                        LocalAccount.require(authentication),
                         authentication.getAuthorities()
                                 .stream()
                                 .anyMatch(authority ->
@@ -65,7 +66,7 @@ public class DoctorAvailabilityController {
                 doctorAvailabilityService.updateAvailability(
                         id,
                         request,
-                        authentication.getName(),
+                        LocalAccount.require(authentication),
                         authentication.getAuthorities()
                                 .stream()
                                 .anyMatch(authority ->

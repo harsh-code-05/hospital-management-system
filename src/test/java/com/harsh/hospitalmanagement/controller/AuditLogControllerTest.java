@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.test.context.support.WithMockUser;
+import com.harsh.hospitalmanagement.security.WithLocalUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -55,7 +55,7 @@ class AuditLogControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "admin@test.com", roles = "ADMIN")
+    @WithLocalUser(username = "admin@test.com", roles = "ADMIN")
     void getAllAuditLogs_shouldReturn200_whenCallerIsAdmin() throws Exception {
         when(auditLogService.getAllAuditLogs(null, null)).thenReturn(List.of(buildLog()));
 
@@ -67,7 +67,7 @@ class AuditLogControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "admin@test.com", roles = "ADMIN")
+    @WithLocalUser(username = "admin@test.com", roles = "ADMIN")
     void getAllAuditLogs_shouldPassFilters_whenParamsProvided() throws Exception {
         when(auditLogService.getAllAuditLogs(eq(AuditEventType.LOGIN_SUCCESS), eq("admin@test.com")))
                 .thenReturn(List.of(buildLog()));
@@ -80,27 +80,27 @@ class AuditLogControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "patient@test.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@test.com", roles = "PATIENT")
     void getAllAuditLogs_shouldReturn403_whenCallerIsPatient() throws Exception {
         mockMvc.perform(get("/api/admin/audit-logs"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithMockUser(username = "doctor@test.com", roles = "DOCTOR")
+    @WithLocalUser(username = "doctor@test.com", roles = "DOCTOR")
     void getAllAuditLogs_shouldReturn403_whenCallerIsDoctor() throws Exception {
         mockMvc.perform(get("/api/admin/audit-logs"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    void getAllAuditLogs_shouldRedirect_whenUnauthenticated() throws Exception {
+    void getAllAuditLogs_shouldReturn401_whenUnauthenticated() throws Exception {
         mockMvc.perform(get("/api/admin/audit-logs"))
-                .andExpect(status().is3xxRedirection());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
-    @WithMockUser(username = "admin@test.com", roles = "ADMIN")
+    @WithLocalUser(username = "admin@test.com", roles = "ADMIN")
     void getAuditLogById_shouldReturn200_whenFound() throws Exception {
         when(auditLogService.getAuditLogById(1L)).thenReturn(buildLog());
 
@@ -111,7 +111,7 @@ class AuditLogControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "admin@test.com", roles = "ADMIN")
+    @WithLocalUser(username = "admin@test.com", roles = "ADMIN")
     void getAuditLogById_shouldReturn404_whenNotFound() throws Exception {
         when(auditLogService.getAuditLogById(999L))
                 .thenThrow(new ResourceNotFoundException("Audit log not found"));
@@ -122,7 +122,7 @@ class AuditLogControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "patient@test.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@test.com", roles = "PATIENT")
     void getAuditLogById_shouldReturn403_whenCallerIsPatient() throws Exception {
         mockMvc.perform(get("/api/admin/audit-logs/1"))
                 .andExpect(status().isForbidden());

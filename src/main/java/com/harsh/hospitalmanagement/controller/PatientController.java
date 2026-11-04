@@ -1,5 +1,6 @@
 package com.harsh.hospitalmanagement.controller;
 
+import com.harsh.hospitalmanagement.security.LocalAccount;
 import com.harsh.hospitalmanagement.dto.PatientProfileRequest;
 import com.harsh.hospitalmanagement.dto.PatientRequest;
 import com.harsh.hospitalmanagement.dto.PatientResponse;
@@ -28,7 +29,7 @@ public class PatientController {
             Authentication authentication) {
 
         Patient patient = patientService.createMyPatientProfile(
-                authentication.getName(),
+                LocalAccount.require(authentication).id(),
                 request
         );
 
@@ -48,7 +49,7 @@ public class PatientController {
     public ResponseEntity<PatientResponse> getMyPatientProfile(
             Authentication authentication) {
 
-        Patient patient = patientService.getPatientByEmail(authentication.getName());
+        Patient patient = patientService.getPatientByUserId(LocalAccount.require(authentication).id());
 
         return ResponseEntity.ok(toResponse(patient));
     }
@@ -65,7 +66,7 @@ public class PatientController {
 
         Patient patient = patientService.getPatientByIdForUser(
                 id,
-                authentication.getName(),
+                LocalAccount.require(authentication).id(),
                 admin
         );
 

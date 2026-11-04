@@ -12,27 +12,38 @@ import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 import com.harsh.hospitalmanagement.service.AppointmentService;
 import com.harsh.hospitalmanagement.service.CustomOidcUserService;
 import com.harsh.hospitalmanagement.service.CustomUserDetailsService;
+import com.harsh.hospitalmanagement.security.LocalAccount;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.mock.web.MockHttpSession;
+import com.harsh.hospitalmanagement.security.WithLocalUser;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextImpl;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
+import static com.harsh.hospitalmanagement.security.WithLocalUser.Factory.account;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 @WebMvcTest(controllers = {AppointmentController.class, GlobalExceptionHandler.class})
 @Import(SecurityConfig.class)
@@ -109,11 +120,11 @@ class AppointmentControllerTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @WithMockUser(username = "patient@test.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@test.com", roles = "PATIENT")
     void bookAppointment_shouldReturn200_whenValidAndAuthenticatedAsPatient() throws Exception {
         Appointment appointment = createMockAppointment(100L, AppointmentStatus.CONFIRMED);
 
-        when(appointmentService.bookAppointment(eq(1L), eq(2L), eq(5L), eq("Chest tightness"), eq("patient@test.com")))
+        when(appointmentService.bookAppointment(eq(1L), eq(2L), eq(5L), eq("Chest tightness"), eq(account("patient@test.com"))))
                 .thenReturn(appointment);
 
         String json = """
@@ -125,7 +136,7 @@ class AppointmentControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/appointments")
+        mockMvc.perform(post("/api/appointments").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isOk())
@@ -138,7 +149,7 @@ class AppointmentControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "patient@test.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@test.com", roles = "PATIENT")
     void bookAppointment_shouldReturn400_whenValidationFails() throws Exception {
         String invalidJson = """
                 {
@@ -147,7 +158,7 @@ class AppointmentControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/appointments")
+        mockMvc.perform(post("/api/appointments").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidJson))
                 .andExpect(status().isBadRequest())
@@ -160,7 +171,7 @@ class AppointmentControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "doctor@test.com", roles = "DOCTOR")
+    @WithLocalUser(username = "doctor@test.com", roles = "DOCTOR")
     void bookAppointment_shouldReturn403_whenCallerIsDoctor() throws Exception {
         String json = """
                 {
@@ -171,14 +182,14 @@ class AppointmentControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/appointments")
+        mockMvc.perform(post("/api/appointments").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithMockUser(username = "admin@test.com", roles = "ADMIN")
+    @WithLocalUser(username = "admin@test.com", roles = "ADMIN")
     void bookAppointment_shouldReturn403_whenCallerIsAdmin() throws Exception {
         String json = """
                 {
@@ -189,14 +200,14 @@ class AppointmentControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/appointments")
+        mockMvc.perform(post("/api/appointments").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    void bookAppointment_shouldRedirect_whenUnauthenticated() throws Exception {
+    void bookAppointment_shouldReturn401JsonWithoutMutation_whenSessionExpiredAndCsrfValid() throws Exception {
         String json = """
                 {
                     "patientId": 1,
@@ -206,10 +217,24 @@ class AppointmentControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/appointments")
+        mockMvc.perform(post("/api/appointments").with(expiredPatientSession()).with(csrf())
+                        .accept(MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN, MediaType.ALL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
-                .andExpect(status().is3xxRedirection());
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.message").value("Not authenticated"))
+                .andExpect(header().doesNotExist("Location"));
+        verifyNoInteractions(appointmentService);
+    }
+
+    @Test
+    void bookAppointment_shouldReturn403WithoutMutation_whenCsrfInvalid() throws Exception {
+        mockMvc.perform(post("/api/appointments").with(expiredPatientSession()).with(csrf().useInvalidToken())
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden())
+                .andExpect(header().doesNotExist("Location"));
+        verifyNoInteractions(appointmentService);
     }
 
     // -------------------------------------------------------------------------
@@ -217,10 +242,10 @@ class AppointmentControllerTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @WithMockUser(username = "patient@test.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@test.com", roles = "PATIENT")
     void getAppointments_shouldReturn200_whenCallerIsPatient() throws Exception {
         Appointment app = createMockAppointment(100L, AppointmentStatus.CONFIRMED);
-        when(appointmentService.getAppointments("patient@test.com", "ROLE_PATIENT"))
+        when(appointmentService.getAppointments(account("patient@test.com"), "ROLE_PATIENT"))
                 .thenReturn(List.of(app));
 
         mockMvc.perform(get("/api/appointments"))
@@ -231,10 +256,10 @@ class AppointmentControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "doctor@test.com", roles = "DOCTOR")
+    @WithLocalUser(username = "doctor@test.com", roles = "DOCTOR")
     void getAppointments_shouldReturn200_whenCallerIsDoctor() throws Exception {
         Appointment app = createMockAppointment(100L, AppointmentStatus.CONFIRMED);
-        when(appointmentService.getAppointments("doctor@test.com", "ROLE_DOCTOR"))
+        when(appointmentService.getAppointments(account("doctor@test.com"), "ROLE_DOCTOR"))
                 .thenReturn(List.of(app));
 
         mockMvc.perform(get("/api/appointments"))
@@ -244,10 +269,10 @@ class AppointmentControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "admin@test.com", roles = "ADMIN")
+    @WithLocalUser(username = "admin@test.com", roles = "ADMIN")
     void getAppointments_shouldReturn200_whenCallerIsAdmin() throws Exception {
         Appointment app = createMockAppointment(100L, AppointmentStatus.CONFIRMED);
-        when(appointmentService.getAppointments("admin@test.com", "ROLE_ADMIN"))
+        when(appointmentService.getAppointments(account("admin@test.com"), "ROLE_ADMIN"))
                 .thenReturn(List.of(app));
 
         mockMvc.perform(get("/api/appointments"))
@@ -256,9 +281,29 @@ class AppointmentControllerTest {
     }
 
     @Test
-    void getAppointments_shouldRedirect_whenUnauthenticated() throws Exception {
-        mockMvc.perform(get("/api/appointments"))
-                .andExpect(status().is3xxRedirection());
+    void getAppointments_shouldReturn401Json_whenSessionExpiredEvenWithHtmlAccept() throws Exception {
+        mockMvc.perform(get("/api/appointments").with(expiredPatientSession()).accept(MediaType.TEXT_HTML))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.message").value("Not authenticated"))
+                .andExpect(header().doesNotExist("Location"));
+        verifyNoInteractions(appointmentService);
+    }
+
+    private RequestPostProcessor expiredPatientSession() {
+        var principal = new LocalAccount.PasswordPrincipal(account("patient@test.com"), "unused", Role.PATIENT);
+        var authentication = UsernamePasswordAuthenticationToken.authenticated(
+                principal, null, principal.getAuthorities());
+        var session = new MockHttpSession();
+        session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                new SecurityContextImpl(authentication));
+        String expiredId = session.getId();
+        session.invalidate();
+        return request -> {
+            request.setRequestedSessionId(expiredId);
+            request.setRequestedSessionIdValid(false);
+            return request;
+        };
     }
 
     // -------------------------------------------------------------------------
@@ -266,10 +311,10 @@ class AppointmentControllerTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @WithMockUser(username = "patient@test.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@test.com", roles = "PATIENT")
     void getAppointmentById_shouldReturn200_whenAuthorized() throws Exception {
         Appointment app = createMockAppointment(100L, AppointmentStatus.CONFIRMED);
-        when(appointmentService.getAppointmentById(100L, "patient@test.com", "ROLE_PATIENT"))
+        when(appointmentService.getAppointmentById(100L, account("patient@test.com"), "ROLE_PATIENT"))
                 .thenReturn(app);
 
         mockMvc.perform(get("/api/appointments/100"))
@@ -279,9 +324,9 @@ class AppointmentControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "patient@test.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@test.com", roles = "PATIENT")
     void getAppointmentById_shouldReturn404_whenNotFound() throws Exception {
-        when(appointmentService.getAppointmentById(999L, "patient@test.com", "ROLE_PATIENT"))
+        when(appointmentService.getAppointmentById(999L, account("patient@test.com"), "ROLE_PATIENT"))
                 .thenThrow(new ResourceNotFoundException("Appointment not found"));
 
         mockMvc.perform(get("/api/appointments/999"))
@@ -291,9 +336,9 @@ class AppointmentControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "unauthorized@test.com", roles = "PATIENT")
+    @WithLocalUser(username = "unauthorized@test.com", roles = "PATIENT")
     void getAppointmentById_shouldReturn403_whenForbidden() throws Exception {
-        when(appointmentService.getAppointmentById(100L, "unauthorized@test.com", "ROLE_PATIENT"))
+        when(appointmentService.getAppointmentById(100L, account("unauthorized@test.com"), "ROLE_PATIENT"))
                 .thenThrow(new ForbiddenException("You are not allowed to access this appointment"));
 
         mockMvc.perform(get("/api/appointments/100"))
@@ -303,9 +348,9 @@ class AppointmentControllerTest {
     }
 
     @Test
-    void getAppointmentById_shouldRedirect_whenUnauthenticated() throws Exception {
+    void getAppointmentById_shouldReturn401_whenUnauthenticated() throws Exception {
         mockMvc.perform(get("/api/appointments/100"))
-                .andExpect(status().is3xxRedirection());
+                .andExpect(status().isUnauthorized());
     }
 
     // -------------------------------------------------------------------------
@@ -313,15 +358,15 @@ class AppointmentControllerTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @WithMockUser(username = "patient@test.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@test.com", roles = "PATIENT")
     void cancelAppointment_shouldReturn200_whenPatientCancels() throws Exception {
         Appointment app = createMockAppointment(100L, AppointmentStatus.CANCELLED);
         app.getSlot().setStatus(SlotStatus.AVAILABLE);
 
-        when(appointmentService.cancelAppointment(100L, "patient@test.com", "ROLE_PATIENT"))
+        when(appointmentService.cancelAppointment(100L, account("patient@test.com"), "ROLE_PATIENT"))
                 .thenReturn(app);
 
-        mockMvc.perform(patch("/api/appointments/100/cancel"))
+        mockMvc.perform(patch("/api/appointments/100/cancel").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(100L))
                 .andExpect(jsonPath("$.status").value("CANCELLED"))
@@ -329,63 +374,63 @@ class AppointmentControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "doctor@test.com", roles = "DOCTOR")
+    @WithLocalUser(username = "doctor@test.com", roles = "DOCTOR")
     void cancelAppointment_shouldReturn200_whenDoctorCancels() throws Exception {
         Appointment app = createMockAppointment(100L, AppointmentStatus.CANCELLED);
         app.getSlot().setStatus(SlotStatus.AVAILABLE);
 
-        when(appointmentService.cancelAppointment(100L, "doctor@test.com", "ROLE_DOCTOR"))
+        when(appointmentService.cancelAppointment(100L, account("doctor@test.com"), "ROLE_DOCTOR"))
                 .thenReturn(app);
 
-        mockMvc.perform(patch("/api/appointments/100/cancel"))
+        mockMvc.perform(patch("/api/appointments/100/cancel").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(100L))
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
     }
 
     @Test
-    @WithMockUser(username = "admin@test.com", roles = "ADMIN")
+    @WithLocalUser(username = "admin@test.com", roles = "ADMIN")
     void cancelAppointment_shouldReturn200_whenAdminCancels() throws Exception {
         Appointment app = createMockAppointment(100L, AppointmentStatus.CANCELLED);
         app.getSlot().setStatus(SlotStatus.AVAILABLE);
 
-        when(appointmentService.cancelAppointment(100L, "admin@test.com", "ROLE_ADMIN"))
+        when(appointmentService.cancelAppointment(100L, account("admin@test.com"), "ROLE_ADMIN"))
                 .thenReturn(app);
 
-        mockMvc.perform(patch("/api/appointments/100/cancel"))
+        mockMvc.perform(patch("/api/appointments/100/cancel").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(100L))
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
     }
 
     @Test
-    @WithMockUser(username = "patient@test.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@test.com", roles = "PATIENT")
     void cancelAppointment_shouldReturn400_whenAlreadyCancelled() throws Exception {
-        when(appointmentService.cancelAppointment(100L, "patient@test.com", "ROLE_PATIENT"))
+        when(appointmentService.cancelAppointment(100L, account("patient@test.com"), "ROLE_PATIENT"))
                 .thenThrow(new BadRequestException("Only confirmed appointments can be cancelled"));
 
-        mockMvc.perform(patch("/api/appointments/100/cancel"))
+        mockMvc.perform(patch("/api/appointments/100/cancel").with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.message").value("Only confirmed appointments can be cancelled"));
     }
 
     @Test
-    @WithMockUser(username = "unauthorized@test.com", roles = "PATIENT")
+    @WithLocalUser(username = "unauthorized@test.com", roles = "PATIENT")
     void cancelAppointment_shouldReturn403_whenForbidden() throws Exception {
-        when(appointmentService.cancelAppointment(100L, "unauthorized@test.com", "ROLE_PATIENT"))
+        when(appointmentService.cancelAppointment(100L, account("unauthorized@test.com"), "ROLE_PATIENT"))
                 .thenThrow(new ForbiddenException("You are not allowed to cancel this appointment"));
 
-        mockMvc.perform(patch("/api/appointments/100/cancel"))
+        mockMvc.perform(patch("/api/appointments/100/cancel").with(csrf()))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value(403))
                 .andExpect(jsonPath("$.message").value("You are not allowed to cancel this appointment"));
     }
 
     @Test
-    void cancelAppointment_shouldRedirect_whenUnauthenticated() throws Exception {
-        mockMvc.perform(patch("/api/appointments/100/cancel"))
-                .andExpect(status().is3xxRedirection());
+    void cancelAppointment_shouldReturn401_whenUnauthenticated() throws Exception {
+        mockMvc.perform(patch("/api/appointments/100/cancel").with(csrf()))
+                .andExpect(status().isUnauthorized());
     }
 
     // -------------------------------------------------------------------------
@@ -393,67 +438,67 @@ class AppointmentControllerTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @WithMockUser(username = "doctor@test.com", roles = "DOCTOR")
+    @WithLocalUser(username = "doctor@test.com", roles = "DOCTOR")
     void completeAppointment_shouldReturn200_whenDoctorCompletes() throws Exception {
         Appointment app = createMockAppointment(100L, AppointmentStatus.COMPLETED);
 
-        when(appointmentService.completeAppointment(100L, "doctor@test.com", "ROLE_DOCTOR"))
+        when(appointmentService.completeAppointment(100L, account("doctor@test.com"), "ROLE_DOCTOR"))
                 .thenReturn(app);
 
-        mockMvc.perform(patch("/api/appointments/100/complete"))
+        mockMvc.perform(patch("/api/appointments/100/complete").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(100L))
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
     }
 
     @Test
-    @WithMockUser(username = "admin@test.com", roles = "ADMIN")
+    @WithLocalUser(username = "admin@test.com", roles = "ADMIN")
     void completeAppointment_shouldReturn200_whenAdminCompletes() throws Exception {
         Appointment app = createMockAppointment(100L, AppointmentStatus.COMPLETED);
 
-        when(appointmentService.completeAppointment(100L, "admin@test.com", "ROLE_ADMIN"))
+        when(appointmentService.completeAppointment(100L, account("admin@test.com"), "ROLE_ADMIN"))
                 .thenReturn(app);
 
-        mockMvc.perform(patch("/api/appointments/100/complete"))
+        mockMvc.perform(patch("/api/appointments/100/complete").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(100L))
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
     }
 
     @Test
-    @WithMockUser(username = "patient@test.com", roles = "PATIENT")
+    @WithLocalUser(username = "patient@test.com", roles = "PATIENT")
     void completeAppointment_shouldReturn403_whenCallerIsPatient() throws Exception {
-        mockMvc.perform(patch("/api/appointments/100/complete"))
+        mockMvc.perform(patch("/api/appointments/100/complete").with(csrf()))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithMockUser(username = "doctor@test.com", roles = "DOCTOR")
+    @WithLocalUser(username = "doctor@test.com", roles = "DOCTOR")
     void completeAppointment_shouldReturn400_whenAppointmentBeforeScheduledEndTime() throws Exception {
-        when(appointmentService.completeAppointment(100L, "doctor@test.com", "ROLE_DOCTOR"))
+        when(appointmentService.completeAppointment(100L, account("doctor@test.com"), "ROLE_DOCTOR"))
                 .thenThrow(new BadRequestException("Cannot complete an appointment before its scheduled end time"));
 
-        mockMvc.perform(patch("/api/appointments/100/complete"))
+        mockMvc.perform(patch("/api/appointments/100/complete").with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.message").value("Cannot complete an appointment before its scheduled end time"));
     }
 
     @Test
-    @WithMockUser(username = "otherdoctor@test.com", roles = "DOCTOR")
+    @WithLocalUser(username = "otherdoctor@test.com", roles = "DOCTOR")
     void completeAppointment_shouldReturn403_whenDoctorIsNotOwner() throws Exception {
-        when(appointmentService.completeAppointment(100L, "otherdoctor@test.com", "ROLE_DOCTOR"))
+        when(appointmentService.completeAppointment(100L, account("otherdoctor@test.com"), "ROLE_DOCTOR"))
                 .thenThrow(new ForbiddenException("Only the assigned doctor or admin can complete this appointment"));
 
-        mockMvc.perform(patch("/api/appointments/100/complete"))
+        mockMvc.perform(patch("/api/appointments/100/complete").with(csrf()))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value(403))
                 .andExpect(jsonPath("$.message").value("Only the assigned doctor or admin can complete this appointment"));
     }
 
     @Test
-    void completeAppointment_shouldRedirect_whenUnauthenticated() throws Exception {
-        mockMvc.perform(patch("/api/appointments/100/complete"))
-                .andExpect(status().is3xxRedirection());
+    void completeAppointment_shouldReturn401_whenUnauthenticated() throws Exception {
+        mockMvc.perform(patch("/api/appointments/100/complete").with(csrf()))
+                .andExpect(status().isUnauthorized());
     }
 }

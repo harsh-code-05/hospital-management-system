@@ -96,17 +96,8 @@ public class UserService {
         return userRepository.findByGoogleId(googleId)
                 .orElseGet(() -> {
 
-                    User existingUser = userRepository
-                            .findByEmail(email)
-                            .orElse(null);
-
-                    if (existingUser != null) {
-                        if (existingUser.getGoogleId() != null && !existingUser.getGoogleId().equals(googleId)) {
-                            throw new BadRequestException(
-                                    "Account is already linked to a different Google account");
-                        }
-                        existingUser.setGoogleId(googleId);
-                        return userRepository.save(existingUser);
+                    if (userRepository.existsByEmailIgnoreCase(email)) {
+                        throw new BadRequestException("Google sign-in cannot be used for this account");
                     }
 
                     User user = new User();

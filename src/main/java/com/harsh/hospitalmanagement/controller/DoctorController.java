@@ -1,5 +1,6 @@
 package com.harsh.hospitalmanagement.controller;
 
+import com.harsh.hospitalmanagement.security.LocalAccount;
 import com.harsh.hospitalmanagement.dto.DoctorRequest;
 import com.harsh.hospitalmanagement.dto.DoctorResponse;
 import com.harsh.hospitalmanagement.dto.DoctorUpdateRequest;
@@ -31,7 +32,7 @@ public class DoctorController {
             @Valid @RequestBody DoctorRequest request,
             Authentication authentication) {
 
-        String adminEmail = authentication != null ? authentication.getName() : "admin";
+        String adminEmail = LocalAccount.require(authentication).email();
         Doctor doctor = doctorService.createDoctor(request, adminEmail);
 
         return ResponseEntity.ok(toResponse(doctor));
@@ -43,7 +44,7 @@ public class DoctorController {
             @Valid @RequestBody DoctorUpdateRequest request,
             Authentication authentication) {
 
-        String adminEmail = authentication != null ? authentication.getName() : "admin";
+        String adminEmail = LocalAccount.require(authentication).email();
         Doctor doctor = doctorService.updateDoctor(id, request, adminEmail);
 
         return ResponseEntity.ok(toResponse(doctor));

@@ -16,9 +16,9 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     @Query("SELECT a FROM Appointment a WHERE a.id = :id")
     Optional<Appointment> findByIdForUpdate(@Param("id") Long id);
 
-    List<Appointment> findByPatient_User_EmailOrderByCreatedAtDesc(String email);
+    List<Appointment> findByPatient_User_IdOrderByCreatedAtDesc(Long userId);
 
-    List<Appointment> findByDoctor_User_EmailOrderByCreatedAtDesc(String email);
+    List<Appointment> findByDoctor_User_IdOrderByCreatedAtDesc(Long userId);
 
     List<Appointment> findAllByOrderByCreatedAtDesc();
 }

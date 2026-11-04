@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import api from '../api/axios';
+import { mutationErrorMessage, requireAvailabilityResult, requireSlotGenerationResult } from '../api/responseValidation';
+import { useAuth } from '../context/useAuth';
 import './AvailabilityManager.css';
 
 /**
@@ -73,6 +75,8 @@ export default function AvailabilityManager({
   isAdmin = false,
   onSlotsGenerated,
 }) {
+  const { user, formDrafts } = useAuth();
+  const [formDraft] = useState(() => formDrafts.get(user.id, 'availability'));
   // Mode detection
   const isDoctorMode = Boolean(doctorId) && !isAdmin;
 
@@ -80,16 +84,16 @@ export default function AvailabilityManager({
   const [doctorsList, setDoctorsList] = useState([]);
   const [doctorsLoading, setDoctorsLoading] = useState(false);
   const [selectedDoctorId, setSelectedDoctorId] = useState(
-    doctorId ? String(doctorId) : '',
+    formDraft?.doctorId ?? (doctorId ? String(doctorId) : ''),
   );
 
   // Active doctor derived state
   const activeDoctorId = isDoctorMode ? String(doctorId) : selectedDoctorId;
 
   // Availability creation form state
-  const [formDate, setFormDate] = useState(getTodayIso());
-  const [formStartTime, setFormStartTime] = useState('09:00');
-  const [formEndTime, setFormEndTime] = useState('12:00');
+  const [formDate, setFormDate] = useState(formDraft?.date ?? getTodayIso());
+  const [formStartTime, setFormStartTime] = useState(formDraft?.startTime ?? '09:00');
+  const [formEndTime, setFormEndTime] = useState(formDraft?.endTime ?? '12:00');
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
@@ -251,6 +255,8 @@ export default function AvailabilityManager({
     }
 
     setFormSubmitting(true);
+    const draft = { doctorId: activeDoctorId, date: formDate, startTime: formStartTime, endTime: formEndTime };
+    formDrafts.save(user.id, 'availability', draft);
     try {
       const payload = {
         doctorId: Number(activeDoctorId),
@@ -260,8 +266,9 @@ export default function AvailabilityManager({
         endTime: formEndTime.length === 5 ? `${formEndTime}:00` : formEndTime,
       };
 
-      const res = await api.post('/doctor-availability', payload);
-      const createdAvail = res.data;
+      const response = await api.post('/doctor-availability', payload);
+      const createdAvail = requireAvailabilityResult(response, payload);
+      formDrafts.discard(user.id, 'availability', draft);
 
       setFormSuccess(
         `Availability created successfully for ${formatDate(
@@ -277,11 +284,9 @@ export default function AvailabilityManager({
       // Trigger schedule refresh
       setRefreshIndex((idx) => idx + 1);
     } catch (err) {
-      const backendMsg =
-        err.response?.data?.message ||
-        err.response?.data?.error ||
-        'Failed to create availability. Please verify inputs and permissions.';
-      setFormError(backendMsg);
+      setFormError(mutationErrorMessage(err,
+        err.response?.data?.error || 'Failed to create availability. Please verify inputs and permissions.',
+      ));
     } finally {
       setFormSubmitting(false);
     }
@@ -308,8 +313,8 @@ export default function AvailabilityManager({
     setGenerationSuccess('');
 
     try {
-      const res = await api.post(`/appointment-slots/${avail.id}/generate`);
-      const slots = Array.isArray(res.data) ? res.data : [];
+      const response = await api.post(`/appointment-slots/${avail.id}/generate`);
+      const slots = requireSlotGenerationResult(response, avail);
 
       // Register availability ID as generated
       setGeneratedAvailabilityIds((prev) => new Set([...prev, avail.id]));
@@ -328,10 +333,7 @@ export default function AvailabilityManager({
         onSlotsGenerated(slots);
       }
     } catch (err) {
-      const errorMsg =
-        err.response?.data?.message ||
-        'Failed to generate appointment slots. Please try again.';
-      setGenerationError(errorMsg);
+      setGenerationError(mutationErrorMessage(err, 'Failed to generate appointment slots. Please try again.'));
     } finally {
       generationLockRef.current = false;
       setIsGeneratingId(null);

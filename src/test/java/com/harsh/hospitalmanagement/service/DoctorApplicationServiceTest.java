@@ -27,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import static com.harsh.hospitalmanagement.security.WithLocalUser.Factory.account;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -172,13 +173,13 @@ class DoctorApplicationServiceTest {
         request.setQualification("MD");
         request.setExperience(3);
 
-        when(userRepository.findByEmail("patient@example.com")).thenReturn(Optional.of(patient));
+        when(userRepository.findById(account("patient@example.com").id())).thenReturn(Optional.of(patient));
         when(doctorApplicationRepository.existsByUser_IdAndStatus(1L, ApplicationStatus.PENDING)).thenReturn(false);
         when(doctorRepository.existsByUser_Id(1L)).thenReturn(false);
         when(specializationRepository.findById(1L)).thenReturn(Optional.of(specialization));
         when(doctorApplicationRepository.save(any(DoctorApplication.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        DoctorApplication result = service.applyForDoctor(request, "patient@example.com");
+        DoctorApplication result = service.applyForDoctor(request, account("patient@example.com").id());
 
         assertThat(result.getStatus()).isEqualTo(ApplicationStatus.PENDING);
         assertThat(result.getFirstName()).isEqualTo("Bob");
@@ -193,11 +194,11 @@ class DoctorApplicationServiceTest {
         doctor.setEmail("doctor@example.com");
         doctor.setRole(Role.DOCTOR);
 
-        when(userRepository.findByEmail("doctor@example.com")).thenReturn(Optional.of(doctor));
+        when(userRepository.findById(account("doctor@example.com").id())).thenReturn(Optional.of(doctor));
 
         DoctorApplyRequest request = new DoctorApplyRequest();
 
-        assertThatThrownBy(() -> service.applyForDoctor(request, "doctor@example.com"))
+        assertThatThrownBy(() -> service.applyForDoctor(request, account("doctor@example.com").id()))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("User is already a doctor");
 
@@ -212,12 +213,12 @@ class DoctorApplicationServiceTest {
         patient.setEmail("patient2@example.com");
         patient.setRole(Role.PATIENT);
 
-        when(userRepository.findByEmail("patient2@example.com")).thenReturn(Optional.of(patient));
+        when(userRepository.findById(account("patient2@example.com").id())).thenReturn(Optional.of(patient));
         when(doctorApplicationRepository.existsByUser_IdAndStatus(3L, ApplicationStatus.PENDING)).thenReturn(true);
 
         DoctorApplyRequest request = new DoctorApplyRequest();
 
-        assertThatThrownBy(() -> service.applyForDoctor(request, "patient2@example.com"))
+        assertThatThrownBy(() -> service.applyForDoctor(request, account("patient2@example.com").id()))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("You already have a pending doctor application");
 
@@ -256,12 +257,12 @@ class DoctorApplicationServiceTest {
         application.setCreatedAt(LocalDateTime.now().minusDays(1));
 
         when(doctorApplicationRepository.findById(10L)).thenReturn(Optional.of(application));
-        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(admin));
+        when(userRepository.findById(account("admin@example.com").id())).thenReturn(Optional.of(admin));
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
         when(doctorRepository.save(any(Doctor.class))).thenAnswer(inv -> inv.getArgument(0));
         when(doctorApplicationRepository.save(any(DoctorApplication.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        DoctorApplication result = service.approveApplication(10L, "admin@example.com");
+        DoctorApplication result = service.approveApplication(10L, account("admin@example.com").id());
 
         // User must now be DOCTOR
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
@@ -291,7 +292,7 @@ class DoctorApplicationServiceTest {
 
         when(doctorApplicationRepository.findById(11L)).thenReturn(Optional.of(application));
 
-        assertThatThrownBy(() -> service.approveApplication(11L, "admin@example.com"))
+        assertThatThrownBy(() -> service.approveApplication(11L, account("admin@example.com").id()))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("Only pending applications can be approved");
 
@@ -322,10 +323,10 @@ class DoctorApplicationServiceTest {
         application.setStatus(ApplicationStatus.PENDING);
 
         when(doctorApplicationRepository.findById(20L)).thenReturn(Optional.of(application));
-        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(admin));
+        when(userRepository.findById(account("admin@example.com").id())).thenReturn(Optional.of(admin));
         when(doctorApplicationRepository.save(any(DoctorApplication.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        DoctorApplication result = service.rejectApplication(20L, "Insufficient credentials", "admin@example.com");
+        DoctorApplication result = service.rejectApplication(20L, "Insufficient credentials", account("admin@example.com").id());
 
         // User role must NOT change
         verify(userRepository, never()).save(argThat(u -> u.getRole() == Role.DOCTOR));
@@ -349,7 +350,7 @@ class DoctorApplicationServiceTest {
 
         when(doctorApplicationRepository.findById(21L)).thenReturn(Optional.of(application));
 
-        assertThatThrownBy(() -> service.rejectApplication(21L, "reason", "admin@example.com"))
+        assertThatThrownBy(() -> service.rejectApplication(21L, "reason", account("admin@example.com").id()))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("Only pending applications can be rejected");
 
@@ -400,10 +401,10 @@ class DoctorApplicationServiceTest {
         user.setId(7L);
         user.setEmail("noapp@example.com");
 
-        when(userRepository.findByEmail("noapp@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findById(account("noapp@example.com").id())).thenReturn(Optional.of(user));
         when(doctorApplicationRepository.findByUser_Id(7L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.getMyApplication("noapp@example.com"))
+        assertThatThrownBy(() -> service.getMyApplication(account("noapp@example.com").id()))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("No doctor application found for this user");
     }

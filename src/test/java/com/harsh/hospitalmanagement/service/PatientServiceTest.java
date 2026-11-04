@@ -20,6 +20,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import java.time.LocalDate;
 import java.util.Optional;
 
+import static com.harsh.hospitalmanagement.security.WithLocalUser.Factory.account;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -56,15 +57,15 @@ class PatientServiceTest {
 
     @Test
     void createMyPatientProfile_success() {
-        when(userRepository.findByEmail("patient@example.com")).thenReturn(Optional.of(patientUser));
-        when(patientRepository.findByUser_Email("patient@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findById(account("patient@example.com").id())).thenReturn(Optional.of(patientUser));
+        when(patientRepository.findByUser_Id(account("patient@example.com").id())).thenReturn(Optional.empty());
         when(patientRepository.save(any(Patient.class))).thenAnswer(invocation -> {
             Patient p = invocation.getArgument(0);
             p.setId(100L);
             return p;
         });
 
-        Patient created = patientService.createMyPatientProfile("patient@example.com", profileRequest);
+        Patient created = patientService.createMyPatientProfile(account("patient@example.com").id(), profileRequest);
 
         assertNotNull(created);
         assertEquals(100L, created.getId());
@@ -79,10 +80,10 @@ class PatientServiceTest {
 
     @Test
     void createMyPatientProfile_userNotFound_throwsResourceNotFoundException() {
-        when(userRepository.findByEmail("unknown@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findById(account("unknown@example.com").id())).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () ->
-                patientService.createMyPatientProfile("unknown@example.com", profileRequest)
+                patientService.createMyPatientProfile(account("unknown@example.com").id(), profileRequest)
         );
         verify(patientRepository, never()).save(any());
     }
@@ -94,10 +95,10 @@ class PatientServiceTest {
         doctorUser.setEmail("doctor@example.com");
         doctorUser.setRole(Role.DOCTOR);
 
-        when(userRepository.findByEmail("doctor@example.com")).thenReturn(Optional.of(doctorUser));
+        when(userRepository.findById(account("doctor@example.com").id())).thenReturn(Optional.of(doctorUser));
 
         assertThrows(ForbiddenException.class, () ->
-                patientService.createMyPatientProfile("doctor@example.com", profileRequest)
+                patientService.createMyPatientProfile(account("doctor@example.com").id(), profileRequest)
         );
         verify(patientRepository, never()).save(any());
     }
@@ -108,45 +109,45 @@ class PatientServiceTest {
         existing.setId(50L);
         existing.setUser(patientUser);
 
-        when(userRepository.findByEmail("patient@example.com")).thenReturn(Optional.of(patientUser));
-        when(patientRepository.findByUser_Email("patient@example.com")).thenReturn(Optional.of(existing));
+        when(userRepository.findById(account("patient@example.com").id())).thenReturn(Optional.of(patientUser));
+        when(patientRepository.findByUser_Id(account("patient@example.com").id())).thenReturn(Optional.of(existing));
 
         assertThrows(ConflictException.class, () ->
-                patientService.createMyPatientProfile("patient@example.com", profileRequest)
+                patientService.createMyPatientProfile(account("patient@example.com").id(), profileRequest)
         );
         verify(patientRepository, never()).save(any());
     }
 
     @Test
     void createMyPatientProfile_concurrentSubmission_throwsConflictExceptionOnDataIntegrityViolation() {
-        when(userRepository.findByEmail("patient@example.com")).thenReturn(Optional.of(patientUser));
-        when(patientRepository.findByUser_Email("patient@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findById(account("patient@example.com").id())).thenReturn(Optional.of(patientUser));
+        when(patientRepository.findByUser_Id(account("patient@example.com").id())).thenReturn(Optional.empty());
         when(patientRepository.save(any(Patient.class))).thenThrow(new DataIntegrityViolationException("Unique constraint"));
 
         assertThrows(ConflictException.class, () ->
-                patientService.createMyPatientProfile("patient@example.com", profileRequest)
+                patientService.createMyPatientProfile(account("patient@example.com").id(), profileRequest)
         );
     }
 
     @Test
-    void getPatientByEmail_success() {
+    void getPatientByUserId_success() {
         Patient p = new Patient();
         p.setId(1L);
         p.setUser(patientUser);
 
-        when(patientRepository.findByUser_Email("patient@example.com")).thenReturn(Optional.of(p));
+        when(patientRepository.findByUser_Id(account("patient@example.com").id())).thenReturn(Optional.of(p));
 
-        Patient found = patientService.getPatientByEmail("patient@example.com");
+        Patient found = patientService.getPatientByUserId(account("patient@example.com").id());
         assertNotNull(found);
         assertEquals(1L, found.getId());
     }
 
     @Test
-    void getPatientByEmail_notFound_throwsResourceNotFoundException() {
-        when(patientRepository.findByUser_Email("patient@example.com")).thenReturn(Optional.empty());
+    void getPatientByUserId_notFound_throwsResourceNotFoundException() {
+        when(patientRepository.findByUser_Id(account("patient@example.com").id())).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () ->
-                patientService.getPatientByEmail("patient@example.com")
+                patientService.getPatientByUserId(account("patient@example.com").id())
         );
     }
 }

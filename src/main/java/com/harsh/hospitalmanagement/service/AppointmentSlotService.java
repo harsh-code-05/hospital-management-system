@@ -1,5 +1,6 @@
 package com.harsh.hospitalmanagement.service;
 
+import com.harsh.hospitalmanagement.security.LocalAccount;
 import com.harsh.hospitalmanagement.entity.AppointmentSlot;
 import com.harsh.hospitalmanagement.entity.DoctorAvailability;
 import com.harsh.hospitalmanagement.enums.SlotStatus;
@@ -49,7 +50,7 @@ public class AppointmentSlotService {
 
     public List<AppointmentSlot> generateSlots(
             Long availabilityId,
-            String authenticatedEmail,
+            LocalAccount actor,
             boolean admin) {
 
         DoctorAvailability availability =
@@ -59,10 +60,10 @@ public class AppointmentSlotService {
                                         "Doctor availability not found"));
 
         if (!admin) {
-            String doctorEmail =
-                    availability.getDoctor().getUser().getEmail();
+            long doctorUserId =
+                    availability.getDoctor().getUser().getId();
 
-            if (!doctorEmail.equals(authenticatedEmail)) {
+            if (doctorUserId != actor.id()) {
                 throw new ForbiddenException(
                         "You are not allowed to generate slots for this doctor's availability");
             }

@@ -72,7 +72,7 @@ class AuthenticationManagerTest {
                 .isTrue();
 
         assertThat(authentication.getName())
-                .isEqualTo("patient@gmail.com");
+                .isEqualTo("1");
 
         assertThat(authentication.getAuthorities())
                 .anyMatch(authority ->

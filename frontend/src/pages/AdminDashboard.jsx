@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
+import { mutationErrorMessage, requireAppointmentResult } from '../api/responseValidation';
 import { useAuth } from '../context/useAuth';
 import AvailabilityManager from '../components/AvailabilityManager';
 import AppointmentListState from '../components/AppointmentListState';
@@ -36,11 +37,13 @@ function formatTime(timeStr) {
 }
 
 export default function AdminDashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, formDrafts } = useAuth();
   const navigate = useNavigate();
 
   // Active section tab: 'appointments' or 'availability'
-  const [activeTab, setActiveTab] = useState('appointments');
+  const [activeTab, setActiveTab] = useState(() =>
+    formDrafts.get(user.id, 'availability') ? 'availability' : 'appointments',
+  );
 
   // Appointments state
   const [appointments, setAppointments] = useState([]);
@@ -153,7 +156,8 @@ export default function AdminDashboard() {
     setIsCompleting(true);
     setCompleteError('');
     try {
-      await api.patch(`/appointments/${completingAppt.id}/complete`);
+      const response = await api.patch(`/appointments/${completingAppt.id}/complete`);
+      requireAppointmentResult(response, 'COMPLETED', (data) => data.id === completingAppt.id);
       const notice = `Appointment #${completingAppt.id} was marked as completed.`;
       setCompletingAppt(null);
       const refreshed = await fetchAppointments();
@@ -162,8 +166,7 @@ export default function AdminDashboard() {
         : `${notice} The list could not be refreshed; displayed data may be stale.`);
     } catch (err) {
       setCompleteError(
-        err.response?.data?.message ||
-          'Failed to complete appointment. Please check appointment status and time.',
+        mutationErrorMessage(err, 'Failed to complete appointment. Please check appointment status and time.'),
       );
     } finally {
       setIsCompleting(false);
@@ -176,7 +179,8 @@ export default function AdminDashboard() {
     setIsCancelling(true);
     setCancelError('');
     try {
-      await api.patch(`/appointments/${cancellingAppt.id}/cancel`);
+      const response = await api.patch(`/appointments/${cancellingAppt.id}/cancel`);
+      requireAppointmentResult(response, 'CANCELLED', (data) => data.id === cancellingAppt.id);
       const notice = `Appointment #${cancellingAppt.id} was successfully cancelled. The slot has been released.`;
       setCancellingAppt(null);
       const refreshed = await fetchAppointments();
@@ -185,8 +189,7 @@ export default function AdminDashboard() {
         : `${notice} The list could not be refreshed; displayed data may be stale.`);
     } catch (err) {
       setCancelError(
-        err.response?.data?.message ||
-          'Failed to cancel appointment. Please check appointment status.',
+        mutationErrorMessage(err, 'Failed to cancel appointment. Please check appointment status.'),
       );
     } finally {
       setIsCancelling(false);

@@ -2,19 +2,44 @@ package com.harsh.hospitalmanagement.config;
 
 import com.harsh.hospitalmanagement.service.CustomOidcUserService;
 import com.harsh.hospitalmanagement.service.CustomUserDetailsService;
+import com.harsh.hospitalmanagement.security.LocalAccount;
+import com.harsh.hospitalmanagement.security.LoginRateLimiter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
+import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.CompositeSessionAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.csrf.CsrfAuthenticationStrategy;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
+import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
+import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.List;
 
 @Configuration
 public class SecurityConfig {
@@ -42,6 +67,22 @@ public class SecurityConfig {
     }
 
     @Bean
+    public CsrfTokenRepository csrfTokenRepository() {
+        return new HttpSessionCsrfTokenRepository();
+    }
+
+    @Bean
+    public SessionAuthenticationStrategy passwordSessionStrategy(CsrfTokenRepository csrfTokens) {
+        return new CompositeSessionAuthenticationStrategy(List.of(
+                new ChangeSessionIdAuthenticationStrategy(), new CsrfAuthenticationStrategy(csrfTokens)));
+    }
+
+    @Bean
+    public LoginRateLimiter loginRateLimiter() {
+        return new LoginRateLimiter();
+    }
+
+    @Bean
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration configuration) throws Exception {
 
@@ -52,14 +93,53 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             SecurityContextRepository securityContextRepository,
+            CsrfTokenRepository csrfTokens,
             CustomOidcUserService customOidcUserService,
             @Value("${app.frontend.url:http://localhost:5173/}") String frontendUrl)
             throws Exception {
 
         String targetUrl = frontendUrl.endsWith("/") ? frontendUrl : frontendUrl + "/";
+        var apiRequests = PathPatternRequestMatcher.withDefaults().matcher("/api/**");
+        var browserLogin = new LoginUrlAuthenticationEntryPoint(targetUrl + "login");
+        var browserRequestCache = new HttpSessionRequestCache();
+        browserRequestCache.setRequestMatcher(request ->
+                HttpMethod.GET.matches(request.getMethod()) && !apiRequests.matches(request));
 
         http
-                .csrf(csrf -> csrf.disable())
+                .requestCache(cache -> cache.requestCache(browserRequestCache))
+                .exceptionHandling(errors -> errors.authenticationEntryPoint((request, response, failure) -> {
+                    if (apiRequests.matches(request)) {
+                        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                        response.setHeader("Cache-Control", "no-store");
+                        response.getWriter().write("{\"message\":\"Not authenticated\"}");
+                    } else {
+                        browserLogin.commence(request, response, failure);
+                    }
+                }))
+                .csrf(csrf -> csrf.csrfTokenRepository(csrfTokens))
+                .logout(logout -> logout
+                        .logoutRequestMatcher(PathPatternRequestMatcher.withDefaults()
+                                .matcher(HttpMethod.POST, "/api/auth/logout"))
+                        .deleteCookies("JSESSIONID")
+                        .logoutSuccessHandler(new HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT)))
+                .addFilterBefore(new OncePerRequestFilter() {
+                    @Override
+                    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+                                                    FilterChain chain) throws ServletException, IOException {
+                        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                        // Invalidate sessions from before local-ID principals were introduced.
+                        if (authentication != null && authentication.isAuthenticated()
+                                && !(authentication.getPrincipal() instanceof LocalAccount.Principal)) {
+                            SecurityContextHolder.clearContext();
+                            var session = request.getSession(false);
+                            if (session != null) {
+                                session.invalidate();
+                            }
+                        }
+                        chain.doFilter(request, response);
+                    }
+                }, AnonymousAuthenticationFilter.class)
 
                 .securityContext(securityContext ->
                         securityContext
@@ -68,12 +148,13 @@ public class SecurityConfig {
 
                 .oauth2Login(oauth2 ->
                         oauth2
+                                .loginPage(targetUrl + "login")
                                 .userInfoEndpoint(userInfo ->
                                         userInfo
                                                 .oidcUserService(
                                                         customOidcUserService))
                                 .defaultSuccessUrl(targetUrl, true)
-                                .failureUrl(targetUrl + "login?error"))
+                                .failureUrl(targetUrl + "login?error=google"))
 
                 .authorizeHttpRequests(auth -> auth
 
@@ -93,13 +174,10 @@ public class SecurityConfig {
 
                         .requestMatchers(
                                 HttpMethod.GET,
-                                "/api/auth/me"
+                                "/api/auth/me", "/api/auth/csrf"
                         ).permitAll()
 
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/auth/logout"
-                        ).authenticated()
+                        .requestMatchers("/logout", "/api/auth/logout").denyAll()
 
                         .requestMatchers(
                                 HttpMethod.GET,
@@ -172,7 +250,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/patients/**"
-                        ).hasAnyRole("PATIENT", "ADMIN")
+                        ).hasRole("ADMIN")
 
                         .requestMatchers(
                                 HttpMethod.POST,
