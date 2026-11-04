@@ -256,7 +256,7 @@ class DoctorApplicationServiceTest {
         application.setStatus(ApplicationStatus.PENDING);
         application.setCreatedAt(LocalDateTime.now().minusDays(1));
 
-        when(doctorApplicationRepository.findById(10L)).thenReturn(Optional.of(application));
+        when(doctorApplicationRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(application));
         when(userRepository.findById(account("admin@example.com").id())).thenReturn(Optional.of(admin));
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
         when(doctorRepository.save(any(Doctor.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -290,7 +290,7 @@ class DoctorApplicationServiceTest {
         application.setId(11L);
         application.setStatus(ApplicationStatus.APPROVED);
 
-        when(doctorApplicationRepository.findById(11L)).thenReturn(Optional.of(application));
+        when(doctorApplicationRepository.findByIdForUpdate(11L)).thenReturn(Optional.of(application));
 
         assertThatThrownBy(() -> service.approveApplication(11L, account("admin@example.com").id()))
                 .isInstanceOf(BadRequestException.class)
@@ -322,7 +322,7 @@ class DoctorApplicationServiceTest {
         application.setUser(applicant);
         application.setStatus(ApplicationStatus.PENDING);
 
-        when(doctorApplicationRepository.findById(20L)).thenReturn(Optional.of(application));
+        when(doctorApplicationRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(application));
         when(userRepository.findById(account("admin@example.com").id())).thenReturn(Optional.of(admin));
         when(doctorApplicationRepository.save(any(DoctorApplication.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -348,7 +348,7 @@ class DoctorApplicationServiceTest {
         application.setId(21L);
         application.setStatus(ApplicationStatus.REJECTED);
 
-        when(doctorApplicationRepository.findById(21L)).thenReturn(Optional.of(application));
+        when(doctorApplicationRepository.findByIdForUpdate(21L)).thenReturn(Optional.of(application));
 
         assertThatThrownBy(() -> service.rejectApplication(21L, "reason", account("admin@example.com").id()))
                 .isInstanceOf(BadRequestException.class)

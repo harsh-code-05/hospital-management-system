@@ -16,6 +16,7 @@ import com.harsh.hospitalmanagement.repository.SpecializationRepository;
 import com.harsh.hospitalmanagement.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -137,10 +138,10 @@ public class DoctorApplicationService {
     /**
      * Approves a pending application: promotes User to DOCTOR and creates Doctor profile.
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public DoctorApplication approveApplication(Long id, Long adminId) {
 
-        DoctorApplication application = doctorApplicationRepository.findById(id)
+        DoctorApplication application = doctorApplicationRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor application not found"));
 
         if (application.getStatus() != ApplicationStatus.PENDING) {
@@ -176,10 +177,10 @@ public class DoctorApplicationService {
     /**
      * Rejects a pending application. The user remains PATIENT; no Doctor profile is created.
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public DoctorApplication rejectApplication(Long id, String reason, Long adminId) {
 
-        DoctorApplication application = doctorApplicationRepository.findById(id)
+        DoctorApplication application = doctorApplicationRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor application not found"));
 
         if (application.getStatus() != ApplicationStatus.PENDING) {
