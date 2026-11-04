@@ -7,9 +7,13 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Optional;
 
 public interface DoctorAvailabilityRepository
         extends JpaRepository<DoctorAvailability, Long> {
+
+    @Query("SELECT a.doctor.id FROM DoctorAvailability a WHERE a.id = :id")
+    Optional<Long> findDoctorIdById(@Param("id") Long id);
 
     @Query("""
             SELECT COUNT(a) > 0

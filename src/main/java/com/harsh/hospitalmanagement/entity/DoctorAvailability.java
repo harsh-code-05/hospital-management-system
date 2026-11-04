@@ -27,6 +27,9 @@ public class DoctorAvailability {
 
     private LocalTime endTime;
 
+    @Column(nullable = false)
+    private long revision;
+
     @ManyToOne
     @JoinColumn(name = "doctor_id", nullable = false)
     private Doctor doctor;

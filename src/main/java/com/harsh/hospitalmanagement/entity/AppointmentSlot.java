@@ -35,17 +35,29 @@ public class AppointmentSlot {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(updatable = false)
     private LocalDate date;
 
+    @Column(updatable = false)
     private LocalTime startTime;
 
+    @Column(updatable = false)
     private LocalTime endTime;
 
     @Enumerated(EnumType.STRING)
     private SlotStatus status;
 
     @ManyToOne
-    @JoinColumn(name = "doctor_id", nullable = false)
+    @JoinColumn(name = "doctor_id", nullable = false, updatable = false)
     private Doctor doctor;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "availability_id", foreignKey = @ForeignKey(name = "fk_appointment_slot_availability"))
+    private DoctorAvailability availability;
+
+    private Long availabilityRevision;
+
+    @Column(nullable = false)
+    private boolean retired = true;
 
 }

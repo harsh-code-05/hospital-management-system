@@ -6,8 +6,10 @@ import com.harsh.hospitalmanagement.entity.DoctorAvailability;
 import com.harsh.hospitalmanagement.entity.User;
 import com.harsh.hospitalmanagement.enums.SlotStatus;
 import com.harsh.hospitalmanagement.exception.BadRequestException;
+import com.harsh.hospitalmanagement.repository.AppointmentRepository;
 import com.harsh.hospitalmanagement.repository.AppointmentSlotRepository;
 import com.harsh.hospitalmanagement.repository.DoctorAvailabilityRepository;
+import com.harsh.hospitalmanagement.repository.DoctorRepository;
 import com.harsh.hospitalmanagement.security.LocalAccount;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -49,12 +51,18 @@ class AppointmentSlotServiceTest {
     @Mock
     private DoctorAvailabilityRepository availabilityRepository;
 
+    @Mock
+    private DoctorRepository doctorRepository;
+
+    @Mock
+    private AppointmentRepository appointmentRepository;
+
     private AppointmentSlotService service;
     private Doctor doctor;
 
     @BeforeEach
     void setUp() {
-        service = new AppointmentSlotService(slotRepository, availabilityRepository);
+        service = new AppointmentSlotService(slotRepository, availabilityRepository, doctorRepository, appointmentRepository);
         User user = new User();
         user.setId(DOCTOR_ACCOUNT.id());
         doctor = new Doctor();
@@ -75,14 +83,14 @@ class AppointmentSlotServiceTest {
         List<String> expected = intervals.isEmpty() ? List.of() : List.of(intervals.split(";"));
         List<String> checked = new ArrayList<>();
         // The lookup guard is intentionally unused when the window fits no slots.
-        lenient().when(slotRepository.existsByDoctorAndDateAndTime(eq(DOCTOR_ID), eq(DATE), any(), any()))
+        lenient().when(slotRepository.findByDoctor_IdAndDateAndStartTimeAndEndTime(eq(DOCTOR_ID), eq(DATE), any(), any()))
                 .thenAnswer(invocation -> {
                     // Stop a wraparound regression at its first extra lookup.
                     assertThat(checked.size()).as("number of slot lookups").isLessThan(expected.size());
                     LocalTime slotStart = invocation.getArgument(2);
                     LocalTime slotEnd = invocation.getArgument(3);
                     checked.add(slotStart + "-" + slotEnd);
-                    return false;
+                    return Optional.empty();
                 });
         if (!expected.isEmpty()) {
             when(slotRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -98,6 +106,9 @@ class AppointmentSlotServiceTest {
             assertThat(slot.getDate()).isEqualTo(DATE);
             assertThat(slot.getDoctor()).isSameAs(doctor);
             assertThat(slot.getStatus()).isEqualTo(SlotStatus.AVAILABLE);
+            assertThat(slot.isRetired()).isFalse();
+            assertThat(slot.getAvailability().getId()).isEqualTo(AVAILABILITY_ID);
+            assertThat(slot.getAvailabilityRevision()).isEqualTo(7L);
         });
         if (expected.isEmpty()) {
             verify(slotRepository, never()).saveAll(any());
@@ -125,6 +136,9 @@ class AppointmentSlotServiceTest {
         availability.setDate(DATE);
         availability.setStartTime(LocalTime.parse(start));
         availability.setEndTime(LocalTime.parse(end));
+        availability.setRevision(7);
+        when(availabilityRepository.findDoctorIdById(AVAILABILITY_ID)).thenReturn(Optional.of(DOCTOR_ID));
+        when(doctorRepository.findByIdForUpdate(DOCTOR_ID)).thenReturn(Optional.of(doctor));
         when(availabilityRepository.findById(AVAILABILITY_ID)).thenReturn(Optional.of(availability));
     }
 }

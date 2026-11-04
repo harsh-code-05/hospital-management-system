@@ -12,6 +12,7 @@ import com.harsh.hospitalmanagement.enums.Role;
 import com.harsh.hospitalmanagement.enums.SlotStatus;
 import com.harsh.hospitalmanagement.exception.BadRequestException;
 import com.harsh.hospitalmanagement.repository.AppointmentRepository;
+import com.harsh.hospitalmanagement.repository.DoctorRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,6 +64,9 @@ class AppointmentConcurrencyTest {
     private AppointmentRepository appointmentRepository;
 
     @Autowired
+    private DoctorRepository doctorRepository;
+
+    @Autowired
     private EntityManager entityManager;
 
     @Autowired
@@ -96,8 +100,9 @@ class AppointmentConcurrencyTest {
 
         try {
             Future<AppointmentStatus> winner = executor.submit(() -> transactions.execute(ignored -> {
-                // Hold the real database lock before starting the competing service call.
-                appointmentRepository.findByIdForUpdate(appointmentId).orElseThrow();
+                // Hold the schedule lock before starting the competing service call.
+                long doctorId = appointmentRepository.findDoctorIdById(appointmentId).orElseThrow();
+                doctorRepository.findByIdForUpdate(doctorId).orElseThrow();
                 winnerHasLock.countDown();
                 await(releaseWinner);
                 return transition(appointmentId, winnerCompletes).getStatus();
@@ -110,7 +115,7 @@ class AppointmentConcurrencyTest {
             });
             assertThat(contenderStarted.await(5, TimeUnit.SECONDS)).isTrue();
             assertThrows(TimeoutException.class, () -> contender.get(300, TimeUnit.MILLISECONDS),
-                    "The second transition must wait while the first transaction holds the appointment lock");
+                    "The second transition must wait while the first transaction holds the doctor lock");
 
             releaseWinner.countDown();
             AppointmentStatus expectedStatus = winnerCompletes
@@ -201,7 +206,7 @@ class AppointmentConcurrencyTest {
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while holding appointment lock", exception);
+            throw new IllegalStateException("Interrupted while holding doctor lock", exception);
         }
     }
 }

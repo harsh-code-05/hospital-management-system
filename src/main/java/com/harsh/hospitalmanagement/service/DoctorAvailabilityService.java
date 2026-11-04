@@ -5,10 +5,14 @@ import com.harsh.hospitalmanagement.dto.DoctorAvailabilityRequest;
 import com.harsh.hospitalmanagement.entity.Doctor;
 import com.harsh.hospitalmanagement.entity.DoctorAvailability;
 import com.harsh.hospitalmanagement.exception.BadRequestException;
+import com.harsh.hospitalmanagement.exception.ConflictException;
 import com.harsh.hospitalmanagement.exception.ForbiddenException;
+import com.harsh.hospitalmanagement.repository.AppointmentSlotRepository;
 import com.harsh.hospitalmanagement.repository.DoctorAvailabilityRepository;
 import com.harsh.hospitalmanagement.repository.DoctorRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 
 import java.time.LocalDate;
@@ -21,15 +25,18 @@ public class DoctorAvailabilityService {
 
     private final DoctorAvailabilityRepository doctorAvailabilityRepository;
     private final DoctorRepository doctorRepository;
+    private final AppointmentSlotRepository appointmentSlotRepository;
     private final AuditLogService auditLogService;
 
     public DoctorAvailabilityService(
             DoctorAvailabilityRepository doctorAvailabilityRepository,
             DoctorRepository doctorRepository,
+            AppointmentSlotRepository appointmentSlotRepository,
             AuditLogService auditLogService) {
 
         this.doctorAvailabilityRepository = doctorAvailabilityRepository;
         this.doctorRepository = doctorRepository;
+        this.appointmentSlotRepository = appointmentSlotRepository;
         this.auditLogService = auditLogService;
     }
 
@@ -38,16 +45,12 @@ public class DoctorAvailabilityService {
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor availability not found"));
     }
 
-    public DoctorAvailability saveAvailability(DoctorAvailability availability) {
-        return doctorAvailabilityRepository.save(availability);
-    }
-
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public DoctorAvailability createAvailability(
             DoctorAvailabilityRequest request,
             LocalAccount actor,
             boolean admin) {
-        Doctor doctor = doctorRepository.findById(request.getDoctorId())
-                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found"));
+        Doctor doctor = lockDoctor(request.getDoctorId());
 
         if (!admin) {
             long doctorUserId = doctor.getUser().getId();
@@ -104,16 +107,29 @@ public class DoctorAvailabilityService {
         return savedAvailability;
     }
 
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public DoctorAvailability updateAvailability(
             Long id,
             DoctorAvailabilityRequest request,
             LocalAccount actor,
             boolean admin) {
 
-        DoctorAvailability availability = doctorAvailabilityRepository.findById(id)
+        long currentDoctorId = doctorAvailabilityRepository.findDoctorIdById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor availability not found"));
+        long targetDoctorId = admin ? request.getDoctorId() : currentDoctorId;
+        // Reassignment takes both schedule locks in ascending ID order.
+        Doctor target = lockDoctor(Math.min(currentDoctorId, targetDoctorId));
+        if (currentDoctorId < targetDoctorId) {
+            target = lockDoctor(targetDoctorId);
+        } else if (currentDoctorId > targetDoctorId) {
+            lockDoctor(currentDoctorId);
+        }
 
+        DoctorAvailability availability = getAvailabilityById(id);
         Doctor doctor = availability.getDoctor();
+        if (doctor.getId() != currentDoctorId) {
+            throw new ConflictException("Availability changed while acquiring the schedule lock. Retry the request.");
+        }
 
         if (!admin) {
             long doctorUserId = doctor.getUser().getId();
@@ -126,12 +142,6 @@ public class DoctorAvailabilityService {
             if (!request.getDoctorId().equals(doctor.getId())) {
                 throw new ForbiddenException(
                         "You cannot reassign availability to another doctor");
-            }
-        } else {
-            if (!request.getDoctorId().equals(doctor.getId())) {
-                doctor = doctorRepository.findById(request.getDoctorId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Doctor not found"));
-                availability.setDoctor(doctor);
             }
         }
 
@@ -146,7 +156,7 @@ public class DoctorAvailabilityService {
 
         boolean overlapExists =
                 doctorAvailabilityRepository.existsOverlappingAvailabilityExcludingId(
-                        doctor.getId(),
+                        targetDoctorId,
                         request.getDate(),
                         request.getStartTime(),
                         request.getEndTime(),
@@ -158,9 +168,18 @@ public class DoctorAvailabilityService {
                     "Doctor already has availability during this time");
         }
 
-        availability.setDate(request.getDate());
-        availability.setStartTime(request.getStartTime());
-        availability.setEndTime(request.getEndTime());
+        if (currentDoctorId != targetDoctorId
+                || !request.getDate().equals(availability.getDate())
+                || !request.getStartTime().equals(availability.getStartTime())
+                || !request.getEndTime().equals(availability.getEndTime())) {
+            appointmentSlotRepository.findUnretiredForRevision(id, availability.getRevision())
+                    .forEach(slot -> slot.setRetired(true));
+            availability.setRevision(availability.getRevision() + 1);
+            availability.setDoctor(target);
+            availability.setDate(request.getDate());
+            availability.setStartTime(request.getStartTime());
+            availability.setEndTime(request.getEndTime());
+        }
 
         DoctorAvailability savedAvailability = doctorAvailabilityRepository.save(availability);
 
@@ -170,10 +189,15 @@ public class DoctorAvailabilityService {
                 admin ? "ROLE_ADMIN" : "ROLE_DOCTOR",
                 "DoctorAvailability",
                 savedAvailability.getId(),
-                "Updated availability ID " + savedAvailability.getId() + " for doctor ID " + doctor.getId(),
+                "Updated availability ID " + savedAvailability.getId() + " for doctor ID " + targetDoctorId,
                 null
         );
 
         return savedAvailability;
+    }
+
+    private Doctor lockDoctor(long doctorId) {
+        return doctorRepository.findByIdForUpdate(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found"));
     }
 }

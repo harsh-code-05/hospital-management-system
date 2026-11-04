@@ -8,6 +8,7 @@ import com.harsh.hospitalmanagement.enums.AuditEventType;
 import com.harsh.hospitalmanagement.enums.Role;
 import com.harsh.hospitalmanagement.exception.BadRequestException;
 import com.harsh.hospitalmanagement.exception.ForbiddenException;
+import com.harsh.hospitalmanagement.repository.AppointmentSlotRepository;
 import com.harsh.hospitalmanagement.repository.DoctorAvailabilityRepository;
 import com.harsh.hospitalmanagement.repository.DoctorRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +37,9 @@ class DoctorAvailabilityServiceTest {
     private DoctorRepository doctorRepository;
 
     @Mock
+    private AppointmentSlotRepository appointmentSlotRepository;
+
+    @Mock
     private AuditLogService auditLogService;
 
     private DoctorAvailabilityService service;
@@ -45,6 +49,7 @@ class DoctorAvailabilityServiceTest {
         service = new DoctorAvailabilityService(
                 doctorAvailabilityRepository,
                 doctorRepository,
+                appointmentSlotRepository,
                 auditLogService
         );
     }
@@ -64,7 +69,7 @@ class DoctorAvailabilityServiceTest {
     @Test
     void createAvailability_shouldSaveAndLogAuditEvent_whenValid() {
         Doctor doctor = createDoctor(1L, "doc@test.com");
-        when(doctorRepository.findById(1L)).thenReturn(Optional.of(doctor));
+        when(doctorRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(doctor));
         when(doctorAvailabilityRepository.existsOverlappingAvailability(anyLong(), any(), any(), any()))
                 .thenReturn(false);
         when(doctorAvailabilityRepository.save(any(DoctorAvailability.class))).thenAnswer(inv -> {
@@ -82,6 +87,7 @@ class DoctorAvailabilityServiceTest {
         DoctorAvailability saved = service.createAvailability(req, account("doc@test.com"), false);
 
         assertThat(saved.getId()).isEqualTo(10L);
+        assertThat(saved.getRevision()).isZero();
         verify(auditLogService).logEvent(
                 eq(AuditEventType.DOCTOR_CREATED_AVAILABILITY),
                 eq("doc@test.com"),
@@ -96,7 +102,7 @@ class DoctorAvailabilityServiceTest {
     @Test
     void createAvailability_shouldNotLogAuditEvent_whenTimeInvalid() {
         Doctor doctor = createDoctor(1L, "doc@test.com");
-        when(doctorRepository.findById(1L)).thenReturn(Optional.of(doctor));
+        when(doctorRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(doctor));
 
         DoctorAvailabilityRequest req = new DoctorAvailabilityRequest();
         req.setDoctorId(1L);
@@ -122,6 +128,8 @@ class DoctorAvailabilityServiceTest {
         existing.setStartTime(LocalTime.of(9, 0));
         existing.setEndTime(LocalTime.of(12, 0));
 
+        when(doctorAvailabilityRepository.findDoctorIdById(5L)).thenReturn(Optional.of(1L));
+        when(doctorRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(doctor));
         when(doctorAvailabilityRepository.findById(5L)).thenReturn(Optional.of(existing));
         when(doctorAvailabilityRepository.existsOverlappingAvailabilityExcludingId(anyLong(), any(), any(), any(), anyLong()))
                 .thenReturn(false);
@@ -136,6 +144,12 @@ class DoctorAvailabilityServiceTest {
         DoctorAvailability updated = service.updateAvailability(5L, req, account("doc@test.com"), false);
 
         assertThat(updated.getDate()).isEqualTo(LocalDate.now().plusDays(3));
+        assertThat(updated.getRevision()).isEqualTo(1);
+        var order = inOrder(doctorRepository, doctorAvailabilityRepository, appointmentSlotRepository);
+        order.verify(doctorRepository).findByIdForUpdate(1L);
+        order.verify(doctorAvailabilityRepository).findById(5L);
+        order.verify(appointmentSlotRepository).findUnretiredForRevision(5L, 0);
+        order.verify(doctorAvailabilityRepository).save(existing);
         verify(auditLogService).logEvent(
                 eq(AuditEventType.DOCTOR_UPDATED_AVAILABILITY),
                 eq("doc@test.com"),
@@ -148,12 +162,46 @@ class DoctorAvailabilityServiceTest {
     }
 
     @Test
+    void adminReassignmentLocksBothDoctorsInAscendingOrderBeforeRetiringTheOldRevision() {
+        Doctor original = createDoctor(2L, "original@test.invalid");
+        Doctor target = createDoctor(1L, "target@test.invalid");
+        DoctorAvailability availability = new DoctorAvailability();
+        availability.setId(5L);
+        availability.setDoctor(original);
+        availability.setRevision(3);
+
+        when(doctorAvailabilityRepository.findDoctorIdById(5L)).thenReturn(Optional.of(2L));
+        when(doctorRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(target));
+        when(doctorRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(original));
+        when(doctorAvailabilityRepository.findById(5L)).thenReturn(Optional.of(availability));
+        when(doctorAvailabilityRepository.save(availability)).thenReturn(availability);
+
+        DoctorAvailabilityRequest req = new DoctorAvailabilityRequest();
+        req.setDoctorId(1L);
+        req.setDate(LocalDate.now().plusDays(1));
+        req.setStartTime(LocalTime.of(9, 0));
+        req.setEndTime(LocalTime.of(10, 0));
+
+        DoctorAvailability updated = service.updateAvailability(5L, req, account("admin@test.invalid"), true);
+
+        var order = inOrder(doctorRepository, doctorAvailabilityRepository, appointmentSlotRepository);
+        order.verify(doctorRepository).findByIdForUpdate(1L);
+        order.verify(doctorRepository).findByIdForUpdate(2L);
+        order.verify(doctorAvailabilityRepository).findById(5L);
+        order.verify(appointmentSlotRepository).findUnretiredForRevision(5L, 3);
+        assertThat(updated.getDoctor()).isSameAs(target);
+        assertThat(updated.getRevision()).isEqualTo(4);
+    }
+
+    @Test
     void updateAvailability_shouldNotLogAuditEvent_whenUnauthorized() {
         Doctor doctor = createDoctor(1L, "doc@test.com");
         DoctorAvailability existing = new DoctorAvailability();
         existing.setId(5L);
         existing.setDoctor(doctor);
 
+        when(doctorAvailabilityRepository.findDoctorIdById(5L)).thenReturn(Optional.of(1L));
+        when(doctorRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(doctor));
         when(doctorAvailabilityRepository.findById(5L)).thenReturn(Optional.of(existing));
 
         DoctorAvailabilityRequest req = new DoctorAvailabilityRequest();

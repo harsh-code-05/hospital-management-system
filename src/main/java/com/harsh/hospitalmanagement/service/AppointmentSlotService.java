@@ -5,11 +5,16 @@ import com.harsh.hospitalmanagement.entity.AppointmentSlot;
 import com.harsh.hospitalmanagement.entity.DoctorAvailability;
 import com.harsh.hospitalmanagement.enums.SlotStatus;
 import com.harsh.hospitalmanagement.exception.BadRequestException;
+import com.harsh.hospitalmanagement.exception.ConflictException;
 import com.harsh.hospitalmanagement.exception.ForbiddenException;
 import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
+import com.harsh.hospitalmanagement.repository.AppointmentRepository;
 import com.harsh.hospitalmanagement.repository.AppointmentSlotRepository;
 import com.harsh.hospitalmanagement.repository.DoctorAvailabilityRepository;
+import com.harsh.hospitalmanagement.repository.DoctorRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -24,22 +29,26 @@ public class AppointmentSlotService {
 
     private final AppointmentSlotRepository appointmentSlotRepository;
     private final DoctorAvailabilityRepository doctorAvailabilityRepository;
+    private final DoctorRepository doctorRepository;
+    private final AppointmentRepository appointmentRepository;
 
     public AppointmentSlotService(
             AppointmentSlotRepository appointmentSlotRepository,
-            DoctorAvailabilityRepository doctorAvailabilityRepository) {
+            DoctorAvailabilityRepository doctorAvailabilityRepository,
+            DoctorRepository doctorRepository,
+            AppointmentRepository appointmentRepository) {
 
         this.appointmentSlotRepository = appointmentSlotRepository;
         this.doctorAvailabilityRepository = doctorAvailabilityRepository;
+        this.doctorRepository = doctorRepository;
+        this.appointmentRepository = appointmentRepository;
     }
 
     public List<AppointmentSlot> getAvailableSlots(Long doctorId, LocalDate date) {
         if (date != null) {
-            return appointmentSlotRepository.findByDoctor_IdAndDateAndStatus(
-                    doctorId, date, SlotStatus.AVAILABLE);
+            return appointmentSlotRepository.findBookableByDoctorAndDate(doctorId, date);
         }
-        return appointmentSlotRepository.findByDoctor_IdAndStatus(
-                doctorId, SlotStatus.AVAILABLE);
+        return appointmentSlotRepository.findBookableByDoctor(doctorId);
     }
 
     public AppointmentSlot getSlotById(Long id) {
@@ -48,20 +57,25 @@ public class AppointmentSlotService {
                         new ResourceNotFoundException("Appointment slot not found"));
     }
 
-    public AppointmentSlot saveSlot(AppointmentSlot slot) {
-        return appointmentSlotRepository.save(slot);
-    }
-
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public List<AppointmentSlot> generateSlots(
             Long availabilityId,
             LocalAccount actor,
             boolean admin) {
+
+        long doctorId = doctorAvailabilityRepository.findDoctorIdById(availabilityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor availability not found"));
+        doctorRepository.findByIdForUpdate(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found"));
 
         DoctorAvailability availability =
                 doctorAvailabilityRepository.findById(availabilityId)
                         .orElseThrow(() ->
                                 new ResourceNotFoundException(
                                         "Doctor availability not found"));
+        if (availability.getDoctor().getId() != doctorId) {
+            throw new ConflictException("Availability changed while acquiring the schedule lock. Retry the request.");
+        }
 
         if (!admin) {
             long doctorUserId =
@@ -80,30 +94,31 @@ public class AppointmentSlotService {
         }
 
         long slotCount = Duration.between(currentTime, endTime).dividedBy(SLOT_DURATION);
+        LocalDate date = availability.getDate();
         List<AppointmentSlot> slots = new ArrayList<>();
 
         for (long i = 0; i < slotCount; i++) {
             LocalTime slotEndTime = currentTime.plus(SLOT_DURATION);
 
-            boolean alreadyExists =
-                    appointmentSlotRepository.existsByDoctorAndDateAndTime(
-                            availability.getDoctor().getId(),
-                            availability.getDate(),
-                            currentTime,
-                            slotEndTime
-                    );
-
-            if (!alreadyExists) {
-
-                AppointmentSlot slot = new AppointmentSlot();
-
-                slot.setDate(availability.getDate());
-                slot.setStartTime(currentTime);
-                slot.setEndTime(slotEndTime);
-                slot.setStatus(SlotStatus.AVAILABLE);
-                slot.setDoctor(availability.getDoctor());
-
-                slots.add(slot);
+            if (!appointmentRepository.existsOverlappingConfirmedAppointment(doctorId, date, currentTime, slotEndTime)
+                    && !appointmentSlotRepository.existsOverlappingBookableSlot(doctorId, date, currentTime, slotEndTime)) {
+                AppointmentSlot slot = appointmentSlotRepository.findByDoctor_IdAndDateAndStartTimeAndEndTime(
+                        doctorId, date, currentTime, slotEndTime).orElse(null);
+                if (slot == null) {
+                    slot = new AppointmentSlot();
+                    slot.setDate(date);
+                    slot.setStartTime(currentTime);
+                    slot.setEndTime(slotEndTime);
+                    slot.setStatus(SlotStatus.AVAILABLE);
+                    slot.setDoctor(availability.getDoctor());
+                }
+                // Reissue only an unoccupied, retired row with the exact same coordinates.
+                if (slot.isRetired() && slot.getStatus() == SlotStatus.AVAILABLE) {
+                    slot.setAvailability(availability);
+                    slot.setAvailabilityRevision(availability.getRevision());
+                    slot.setRetired(false);
+                    slots.add(slot);
+                }
             }
 
             currentTime = slotEndTime;

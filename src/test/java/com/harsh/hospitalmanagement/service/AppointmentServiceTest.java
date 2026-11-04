@@ -120,6 +120,24 @@ class AppointmentServiceTest {
         return appointment;
     }
 
+    private void givenLockedAppointment(Appointment appointment) {
+        Doctor doctor = appointment.getDoctor();
+        when(appointmentRepository.findDoctorIdById(appointment.getId())).thenReturn(Optional.of(doctor.getId()));
+        when(doctorRepository.findByIdForUpdate(doctor.getId())).thenReturn(Optional.of(doctor));
+        when(appointmentRepository.findByIdForUpdate(appointment.getId())).thenReturn(Optional.of(appointment));
+    }
+
+    private void givenLockedSlot(AppointmentSlot slot) {
+        when(appointmentSlotRepository.findByIdForUpdate(slot.getId())).thenReturn(Optional.of(slot));
+    }
+
+    private void givenBookingSlot(AppointmentSlot slot) {
+        Doctor doctor = slot.getDoctor();
+        when(appointmentSlotRepository.findDoctorIdById(slot.getId())).thenReturn(Optional.of(doctor.getId()));
+        when(doctorRepository.findByIdForUpdate(doctor.getId())).thenReturn(Optional.of(doctor));
+        givenLockedSlot(slot);
+    }
+
     // -------------------------------------------------------------------------
     // getAppointments Tests
     // -------------------------------------------------------------------------
@@ -248,7 +266,8 @@ class AppointmentServiceTest {
 
         when(patientRepository.findById(1L)).thenReturn(Optional.of(patient));
         when(doctorRepository.findById(2L)).thenReturn(Optional.of(doctor));
-        when(appointmentSlotRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(slot));
+        givenBookingSlot(slot);
+        when(appointmentSlotRepository.isBookable(3L)).thenReturn(true);
         when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> {
             Appointment app = inv.getArgument(0);
             app.setId(10L);
@@ -281,7 +300,7 @@ class AppointmentServiceTest {
 
         when(patientRepository.findById(1L)).thenReturn(Optional.of(patient));
         when(doctorRepository.findById(2L)).thenReturn(Optional.of(doctor));
-        when(appointmentSlotRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(slot));
+        givenBookingSlot(slot);
 
         assertThatThrownBy(() -> appointmentService.bookAppointment(1L, 2L, 3L, "Checkup", account("patient@test.com")))
                 .isInstanceOf(BadRequestException.class)
@@ -310,7 +329,7 @@ class AppointmentServiceTest {
 
         when(patientRepository.findById(1L)).thenReturn(Optional.of(patient));
         when(doctorRepository.findById(2L)).thenReturn(Optional.of(doctor));
-        when(appointmentSlotRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(pastSlot));
+        givenBookingSlot(pastSlot);
 
         assertThatThrownBy(() -> appointmentService.bookAppointment(1L, 2L, 3L, "Checkup", account("patient@test.com")))
                 .isInstanceOf(BadRequestException.class)
@@ -329,7 +348,7 @@ class AppointmentServiceTest {
 
         when(patientRepository.findById(1L)).thenReturn(Optional.of(patient));
         when(doctorRepository.findById(2L)).thenReturn(Optional.of(doctorRequested));
-        when(appointmentSlotRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(slot));
+        givenBookingSlot(slot);
 
         assertThatThrownBy(() -> appointmentService.bookAppointment(1L, 2L, 3L, "Checkup", account("patient@test.com")))
                 .isInstanceOf(BadRequestException.class)
@@ -347,7 +366,8 @@ class AppointmentServiceTest {
 
         when(patientRepository.findById(1L)).thenReturn(Optional.of(patient));
         when(doctorRepository.findById(2L)).thenReturn(Optional.of(doctor));
-        when(appointmentSlotRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(releasedSlot));
+        givenBookingSlot(releasedSlot);
+        when(appointmentSlotRepository.isBookable(5L)).thenReturn(true);
         when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> {
             Appointment app = inv.getArgument(0);
             app.setId(55L);
@@ -387,7 +407,7 @@ class AppointmentServiceTest {
         Doctor doctor = createDoctor(2L, "doctor@test.com");
         when(patientRepository.findById(1L)).thenReturn(Optional.of(patient));
         when(doctorRepository.findById(2L)).thenReturn(Optional.of(doctor));
-        when(appointmentSlotRepository.findByIdForUpdate(99L)).thenReturn(Optional.empty());
+        when(appointmentSlotRepository.findDoctorIdById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> appointmentService.bookAppointment(1L, 2L, 99L, "Checkup", account("patient@test.com")))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -405,8 +425,8 @@ class AppointmentServiceTest {
         AppointmentSlot slot = createSlot(3L, doctor, SlotStatus.BOOKED);
         Appointment appointment = createAppointment(20L, patient, doctor, slot, AppointmentStatus.CONFIRMED);
 
-        when(appointmentRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(appointment));
-        when(appointmentSlotRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(slot));
+        givenLockedAppointment(appointment);
+        givenLockedSlot(slot);
         when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Appointment cancelled = appointmentService.cancelAppointment(20L, account("patient@test.com"), "ROLE_PATIENT");
@@ -414,7 +434,8 @@ class AppointmentServiceTest {
         assertThat(cancelled.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
         assertThat(slot.getStatus()).isEqualTo(SlotStatus.AVAILABLE);
 
-        var order = inOrder(appointmentRepository, appointmentSlotRepository);
+        var order = inOrder(doctorRepository, appointmentRepository, appointmentSlotRepository);
+        order.verify(doctorRepository).findByIdForUpdate(2L);
         order.verify(appointmentRepository).findByIdForUpdate(20L);
         order.verify(appointmentSlotRepository).findByIdForUpdate(3L);
         order.verify(appointmentRepository).save(appointment);
@@ -436,8 +457,8 @@ class AppointmentServiceTest {
         AppointmentSlot slot = createSlot(3L, doctor, SlotStatus.BOOKED);
         Appointment appointment = createAppointment(20L, patient, doctor, slot, AppointmentStatus.CONFIRMED);
 
-        when(appointmentRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(appointment));
-        when(appointmentSlotRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(slot));
+        givenLockedAppointment(appointment);
+        givenLockedSlot(slot);
         when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Appointment cancelled = appointmentService.cancelAppointment(20L, account("doctor@test.com"), "ROLE_DOCTOR");
@@ -463,8 +484,8 @@ class AppointmentServiceTest {
         AppointmentSlot slot = createSlot(3L, doctor, SlotStatus.BOOKED);
         Appointment appointment = createAppointment(20L, patient, doctor, slot, AppointmentStatus.CONFIRMED);
 
-        when(appointmentRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(appointment));
-        when(appointmentSlotRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(slot));
+        givenLockedAppointment(appointment);
+        givenLockedSlot(slot);
         when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Appointment cancelled = appointmentService.cancelAppointment(20L, account("admin@test.com"), "ROLE_ADMIN");
@@ -490,7 +511,7 @@ class AppointmentServiceTest {
         AppointmentSlot slot = createSlot(3L, doctor, SlotStatus.BOOKED);
         Appointment appointment = createAppointment(20L, patient, doctor, slot, AppointmentStatus.CONFIRMED);
 
-        when(appointmentRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(appointment));
+        givenLockedAppointment(appointment);
 
         assertThatThrownBy(() -> appointmentService.cancelAppointment(20L, account("stranger@test.com"), "ROLE_PATIENT"))
                 .isInstanceOf(ForbiddenException.class)
@@ -507,7 +528,7 @@ class AppointmentServiceTest {
         AppointmentSlot slot = createSlot(3L, doctor, SlotStatus.AVAILABLE);
         Appointment appointment = createAppointment(20L, patient, doctor, slot, AppointmentStatus.CANCELLED);
 
-        when(appointmentRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(appointment));
+        givenLockedAppointment(appointment);
 
         assertThatThrownBy(() -> appointmentService.cancelAppointment(20L, account("patient@test.com"), "ROLE_PATIENT"))
                 .isInstanceOf(BadRequestException.class)
@@ -519,7 +540,7 @@ class AppointmentServiceTest {
 
     @Test
     void cancelAppointment_shouldThrowNotFound_whenAppointmentDoesNotExist() {
-        when(appointmentRepository.findByIdForUpdate(999L)).thenReturn(Optional.empty());
+        when(appointmentRepository.findDoctorIdById(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> appointmentService.cancelAppointment(999L, account("patient@test.com"), "ROLE_PATIENT"))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -537,15 +558,16 @@ class AppointmentServiceTest {
         AppointmentSlot pastSlot = createPastSlot(3L, doctor, SlotStatus.BOOKED);
         Appointment appointment = createAppointment(30L, patient, doctor, pastSlot, AppointmentStatus.CONFIRMED);
 
-        when(appointmentRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(appointment));
-        when(appointmentSlotRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(pastSlot));
+        givenLockedAppointment(appointment);
+        givenLockedSlot(pastSlot);
         when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Appointment completed = appointmentService.completeAppointment(30L, account("doctor@test.com"), "ROLE_DOCTOR");
 
         assertThat(completed.getStatus()).isEqualTo(AppointmentStatus.COMPLETED);
         assertThat(pastSlot.getStatus()).isEqualTo(SlotStatus.BOOKED);
-        var order = inOrder(appointmentRepository, appointmentSlotRepository);
+        var order = inOrder(doctorRepository, appointmentRepository, appointmentSlotRepository);
+        order.verify(doctorRepository).findByIdForUpdate(2L);
         order.verify(appointmentRepository).findByIdForUpdate(30L);
         order.verify(appointmentSlotRepository).findByIdForUpdate(3L);
         order.verify(appointmentRepository).save(appointment);
@@ -567,8 +589,8 @@ class AppointmentServiceTest {
         AppointmentSlot pastSlot = createPastSlot(3L, doctor, SlotStatus.BOOKED);
         Appointment appointment = createAppointment(30L, patient, doctor, pastSlot, AppointmentStatus.CONFIRMED);
 
-        when(appointmentRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(appointment));
-        when(appointmentSlotRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(pastSlot));
+        givenLockedAppointment(appointment);
+        givenLockedSlot(pastSlot);
         when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Appointment completed = appointmentService.completeAppointment(30L, account("admin@test.com"), "ROLE_ADMIN");
@@ -597,7 +619,7 @@ class AppointmentServiceTest {
         AppointmentSlot pastSlot = createPastSlot(3L, doctor, SlotStatus.BOOKED);
         Appointment appointment = createAppointment(30L, patient, doctor, pastSlot, AppointmentStatus.CONFIRMED);
 
-        when(appointmentRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(appointment));
+        givenLockedAppointment(appointment);
 
         assertThatThrownBy(() -> appointmentService.completeAppointment(30L, account("patient@test.com"), "ROLE_PATIENT"))
                 .isInstanceOf(ForbiddenException.class)
@@ -614,7 +636,7 @@ class AppointmentServiceTest {
         AppointmentSlot pastSlot = createPastSlot(3L, doctor, SlotStatus.BOOKED);
         Appointment appointment = createAppointment(30L, patient, doctor, pastSlot, AppointmentStatus.CONFIRMED);
 
-        when(appointmentRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(appointment));
+        givenLockedAppointment(appointment);
 
         assertThatThrownBy(() -> appointmentService.completeAppointment(30L, account("otherdoc@test.com"), "ROLE_DOCTOR"))
                 .isInstanceOf(ForbiddenException.class)
@@ -630,8 +652,8 @@ class AppointmentServiceTest {
         AppointmentSlot futureSlot = createSlot(3L, doctor, SlotStatus.BOOKED);
         Appointment appointment = createAppointment(30L, patient, doctor, futureSlot, AppointmentStatus.CONFIRMED);
 
-        when(appointmentRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(appointment));
-        when(appointmentSlotRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(futureSlot));
+        givenLockedAppointment(appointment);
+        givenLockedSlot(futureSlot);
 
         assertThatThrownBy(() -> appointmentService.completeAppointment(30L, account("doctor@test.com"), "ROLE_DOCTOR"))
                 .isInstanceOf(BadRequestException.class)
@@ -648,7 +670,7 @@ class AppointmentServiceTest {
         AppointmentSlot slot = createPastSlot(3L, doctor, SlotStatus.BOOKED);
         Appointment appointment = createAppointment(30L, patient, doctor, slot, AppointmentStatus.COMPLETED);
 
-        when(appointmentRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(appointment));
+        givenLockedAppointment(appointment);
 
         assertThatThrownBy(() -> appointmentService.completeAppointment(30L, account("doctor@test.com"), "ROLE_DOCTOR"))
                 .isInstanceOf(BadRequestException.class)
@@ -664,7 +686,7 @@ class AppointmentServiceTest {
         AppointmentSlot slot = createPastSlot(3L, doctor, SlotStatus.AVAILABLE);
         Appointment appointment = createAppointment(30L, patient, doctor, slot, AppointmentStatus.CANCELLED);
 
-        when(appointmentRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(appointment));
+        givenLockedAppointment(appointment);
 
         assertThatThrownBy(() -> appointmentService.completeAppointment(30L, account("doctor@test.com"), "ROLE_DOCTOR"))
                 .isInstanceOf(BadRequestException.class)
@@ -675,7 +697,7 @@ class AppointmentServiceTest {
 
     @Test
     void completeAppointment_shouldThrowNotFound_whenAppointmentDoesNotExist() {
-        when(appointmentRepository.findByIdForUpdate(999L)).thenReturn(Optional.empty());
+        when(appointmentRepository.findDoctorIdById(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> appointmentService.completeAppointment(999L, account("doctor@test.com"), "ROLE_DOCTOR"))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -689,7 +711,7 @@ class AppointmentServiceTest {
         Doctor doctor = createDoctor(2L, "doctor@test.com");
         AppointmentSlot slot = createSlot(3L, doctor, SlotStatus.BOOKED);
         Appointment appointment = createAppointment(20L, patient, doctor, slot, status);
-        when(appointmentRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(appointment));
+        givenLockedAppointment(appointment);
 
         assertThatThrownBy(() -> appointmentService.cancelAppointment(20L, account("stranger@test.com"), "ROLE_PATIENT"))
                 .isInstanceOf(ForbiddenException.class)
@@ -707,7 +729,7 @@ class AppointmentServiceTest {
         Doctor doctor = createDoctor(2L, "doctor@test.com");
         AppointmentSlot slot = createPastSlot(3L, doctor, SlotStatus.BOOKED);
         Appointment appointment = createAppointment(30L, patient, doctor, slot, status);
-        when(appointmentRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(appointment));
+        givenLockedAppointment(appointment);
 
         assertThatThrownBy(() -> appointmentService.completeAppointment(30L, account("otherdoc@test.com"), "ROLE_DOCTOR"))
                 .isInstanceOf(ForbiddenException.class)
@@ -725,7 +747,7 @@ class AppointmentServiceTest {
         Doctor doctor = createDoctor(2L, "doctor@test.com");
         AppointmentSlot slot = createSlot(3L, doctor, SlotStatus.BOOKED);
         Appointment appointment = createAppointment(20L, patient, doctor, slot, status);
-        when(appointmentRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(appointment));
+        givenLockedAppointment(appointment);
 
         assertThatThrownBy(() -> appointmentService.cancelAppointment(20L, account("admin@test.com"), "ROLE_ADMIN"))
                 .isInstanceOf(BadRequestException.class)
@@ -743,7 +765,7 @@ class AppointmentServiceTest {
         Doctor doctor = createDoctor(2L, "doctor@test.com");
         AppointmentSlot slot = createPastSlot(3L, doctor, SlotStatus.BOOKED);
         Appointment appointment = createAppointment(30L, patient, doctor, slot, status);
-        when(appointmentRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(appointment));
+        givenLockedAppointment(appointment);
 
         assertThatThrownBy(() -> appointmentService.completeAppointment(30L, account("admin@test.com"), "ROLE_ADMIN"))
                 .isInstanceOf(BadRequestException.class)
@@ -760,8 +782,8 @@ class AppointmentServiceTest {
         Doctor doctor = createDoctor(2L, "doctor@test.com");
         AppointmentSlot slot = createSlot(3L, doctor, SlotStatus.AVAILABLE);
         Appointment appointment = createAppointment(20L, patient, doctor, slot, AppointmentStatus.CONFIRMED);
-        when(appointmentRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(appointment));
-        when(appointmentSlotRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(slot));
+        givenLockedAppointment(appointment);
+        givenLockedSlot(slot);
 
         assertThatThrownBy(() -> appointmentService.cancelAppointment(20L, account("admin@test.com"), "ROLE_ADMIN"))
                 .isInstanceOf(BadRequestException.class)
@@ -779,8 +801,8 @@ class AppointmentServiceTest {
         Doctor doctor = createDoctor(2L, "doctor@test.com");
         AppointmentSlot slot = createPastSlot(3L, doctor, SlotStatus.AVAILABLE);
         Appointment appointment = createAppointment(30L, patient, doctor, slot, AppointmentStatus.CONFIRMED);
-        when(appointmentRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(appointment));
-        when(appointmentSlotRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(slot));
+        givenLockedAppointment(appointment);
+        givenLockedSlot(slot);
 
         assertThatThrownBy(() -> appointmentService.completeAppointment(30L, account("admin@test.com"), "ROLE_ADMIN"))
                 .isInstanceOf(BadRequestException.class)

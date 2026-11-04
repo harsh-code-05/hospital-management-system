@@ -16,6 +16,7 @@ import com.harsh.hospitalmanagement.repository.DoctorRepository;
 import com.harsh.hospitalmanagement.repository.PatientRepository;
 import org.springframework.stereotype.Service;
 import java.util.List;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -103,7 +104,7 @@ public class AppointmentService {
                 "You are not allowed to access appointments");
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Appointment bookAppointment(
             Long patientId,
             Long doctorId,
@@ -126,6 +127,9 @@ public class AppointmentService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Doctor not found"));
 
+        long slotDoctorId = appointmentSlotRepository.findDoctorIdById(slotId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment slot not found"));
+        lockDoctorSchedule(slotDoctorId);
 
         AppointmentSlot slot = appointmentSlotRepository.findByIdForUpdate(slotId)
                 .orElseThrow(() ->
@@ -137,7 +141,7 @@ public class AppointmentService {
                     "Appointment slot is not available");
         }
 
-        if (!slot.getDoctor().getId().equals(doctor.getId())) {
+        if (slot.getDoctor().getId() != slotDoctorId || !slot.getDoctor().getId().equals(doctor.getId())) {
             throw new BadRequestException(
                     "Slot does not belong to this doctor");
         }
@@ -146,6 +150,15 @@ public class AppointmentService {
         if (slotStart.isBefore(LocalDateTime.now())) {
             throw new BadRequestException(
                     "Cannot book an appointment slot in the past");
+        }
+
+        if (!appointmentSlotRepository.isBookable(slotId)) {
+            throw new BadRequestException("Appointment slot is not available");
+        }
+
+        if (appointmentRepository.existsOverlappingConfirmedAppointment(
+                slotDoctorId, slot.getDate(), slot.getStartTime(), slot.getEndTime())) {
+            throw new BadRequestException("Doctor already has an appointment during this time");
         }
 
         slot.setStatus(SlotStatus.BOOKED);
@@ -173,15 +186,13 @@ public class AppointmentService {
 
         return savedAppointment;
     }
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Appointment cancelAppointment(
             Long appointmentId,
             LocalAccount actor,
             String role) {
 
-        Appointment appointment = appointmentRepository.findByIdForUpdate(appointmentId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Appointment not found"));
+        Appointment appointment = lockAppointmentSchedule(appointmentId);
 
         boolean admin = role.equals("ROLE_ADMIN");
 
@@ -206,7 +217,7 @@ public class AppointmentService {
                     "Only confirmed appointments can be cancelled");
         }
 
-        // Lock transitions in a consistent order: appointment first, then its slot.
+        // The doctor and appointment locks are already held, so the slot is last.
         AppointmentSlot slot = appointmentSlotRepository.findByIdForUpdate(
                         appointment.getSlot().getId())
                 .orElseThrow(() ->
@@ -218,6 +229,7 @@ public class AppointmentService {
         }
 
         appointment.setStatus(AppointmentStatus.CANCELLED);
+        // Release occupancy. A retired slot stays withdrawn until explicitly republished.
         slot.setStatus(SlotStatus.AVAILABLE);
 
         Appointment savedAppointment = appointmentRepository.save(appointment);
@@ -244,15 +256,13 @@ public class AppointmentService {
         return savedAppointment;
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Appointment completeAppointment(
             Long appointmentId,
             LocalAccount actor,
             String role) {
 
-        Appointment appointment = appointmentRepository.findByIdForUpdate(appointmentId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Appointment not found"));
+        Appointment appointment = lockAppointmentSchedule(appointmentId);
 
         boolean admin = role.equals("ROLE_ADMIN");
 
@@ -272,7 +282,7 @@ public class AppointmentService {
                     "Only confirmed appointments can be completed");
         }
 
-        // Lock transitions in a consistent order: appointment first, then its slot.
+        // The doctor and appointment locks are already held, so the slot is last.
         AppointmentSlot slot = appointmentSlotRepository.findByIdForUpdate(
                         appointment.getSlot().getId())
                 .orElseThrow(() ->
@@ -308,5 +318,18 @@ public class AppointmentService {
         );
 
         return savedAppointment;
+    }
+
+    private void lockDoctorSchedule(long doctorId) {
+        doctorRepository.findByIdForUpdate(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found"));
+    }
+
+    private Appointment lockAppointmentSchedule(Long appointmentId) {
+        long doctorId = appointmentRepository.findDoctorIdById(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
+        lockDoctorSchedule(doctorId);
+        return appointmentRepository.findByIdForUpdate(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
     }
 }
