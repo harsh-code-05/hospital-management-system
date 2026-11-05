@@ -6,13 +6,19 @@ import com.harsh.hospitalmanagement.entity.Appointment;
 import com.harsh.hospitalmanagement.entity.AppointmentSlot;
 import com.harsh.hospitalmanagement.entity.Doctor;
 import com.harsh.hospitalmanagement.entity.DoctorAvailability;
+import com.harsh.hospitalmanagement.entity.DoctorVerificationHistory;
 import com.harsh.hospitalmanagement.entity.Patient;
 import com.harsh.hospitalmanagement.entity.Specialization;
 import com.harsh.hospitalmanagement.entity.User;
 import com.harsh.hospitalmanagement.enums.AppointmentStatus;
+import com.harsh.hospitalmanagement.enums.ConsultationMode;
 import com.harsh.hospitalmanagement.enums.Role;
 import com.harsh.hospitalmanagement.enums.SlotStatus;
+import com.harsh.hospitalmanagement.enums.VerificationActorRole;
+import com.harsh.hospitalmanagement.enums.VerificationStatus;
 import com.harsh.hospitalmanagement.exception.BadRequestException;
+import com.harsh.hospitalmanagement.exception.ConflictException;
+import com.harsh.hospitalmanagement.exception.ForbiddenException;
 import com.harsh.hospitalmanagement.repository.AppointmentRepository;
 import com.harsh.hospitalmanagement.repository.AppointmentSlotRepository;
 import com.harsh.hospitalmanagement.security.LocalAccount;
@@ -34,6 +40,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -52,7 +59,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop", showSql = false)
 @AutoConfigureTestDatabase(connection = EmbeddedDatabaseConnection.H2,
         replace = AutoConfigureTestDatabase.Replace.ANY)
-@Import({DoctorAvailabilityService.class, AppointmentSlotService.class, AppointmentService.class})
+@Import({DoctorAvailabilityService.class, AppointmentSlotService.class, AppointmentService.class,
+        DoctorLocationService.class, DoctorManagementAccess.class, DoctorVerificationService.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class ScheduleReconciliationTest {
@@ -67,6 +75,10 @@ class ScheduleReconciliationTest {
     @Autowired
     private AppointmentService appointmentService;
     @Autowired
+    private DoctorLocationService locationService;
+    @Autowired
+    private DoctorVerificationService verificationService;
+    @Autowired
     private AppointmentSlotRepository slotRepository;
     @Autowired
     private AppointmentRepository appointmentRepository;
@@ -76,6 +88,216 @@ class ScheduleReconciliationTest {
     private PlatformTransactionManager transactionManager;
     @MockitoBean
     private AuditLogService auditLogService;
+
+    @Test
+    void clinicEditReissuesSlotAndRejectsTheOldOfferWithoutChangingBookedSnapshots() {
+        Doctor doctor = doctor();
+        Patient patient = patient();
+        transaction(() -> {
+            entityManager.find(Doctor.class, doctor.getId()).setVerificationStatus(VerificationStatus.VERIFIED);
+            return null;
+        });
+        var authentication = authentication(doctor.getUser());
+        var clinic = locationService.create(doctor.getId(), clinic("Original clinic", "10.00"), authentication);
+        var availability = request(doctor, day, "09:00", "09:30");
+        availability.setConsultationMode(ConsultationMode.IN_CLINIC);
+        availability.setLocationId(clinic.getId());
+        var window = availabilityService.createAvailability(availability, account(doctor.getUser()), false);
+        var original = generate(window).getFirst();
+        assertThat(original.getOfferVersion()).isNotNull();
+        assertThat(slotService.getAvailableSlots(doctor.getId(), day)).isEmpty();
+
+        locationService.update(doctor.getId(), clinic.getId(), clinic("Repriced clinic", "20.00"), authentication);
+        var replacement = generate(window).getFirst();
+        assertThat(replacement.getId()).isEqualTo(original.getId());
+        assertThat(replacement.getOfferVersion()).isNotEqualTo(original.getOfferVersion());
+        assertThat(slotService.getDiscoverableOffers(doctor.getId(), day))
+                .extracting(AppointmentSlot::getOfferVersion).containsExactly(replacement.getOfferVersion());
+        assertThatThrownBy(() -> appointmentService.bookVersionedOffer(
+                original.getId(), day, original.getOfferVersion(), "Test", account(patient.getUser())))
+                .isInstanceOfSatisfying(ConflictException.class, error -> assertThat(error.getCode()).isEqualTo("OFFER_CHANGED"));
+
+        var booked = appointmentService.bookVersionedOffer(
+                replacement.getId(), day, replacement.getOfferVersion(), "Test", account(patient.getUser()));
+        locationService.archive(doctor.getId(), clinic.getId(), authentication);
+        transaction(() -> {
+            var stored = entityManager.find(Appointment.class, booked.getId());
+            assertThat(stored.getSlot().getStatus()).isEqualTo(SlotStatus.BOOKED);
+            assertThat(stored.getClinicNameSnapshot()).isEqualTo("Repriced clinic");
+            assertThat(stored.getConsultationFee()).isEqualByComparingTo("20.00");
+            assertThat(stored.getOfferVersion()).isEqualTo(replacement.getOfferVersion());
+            return null;
+        });
+    }
+
+    private DoctorLocationService.ClinicDetails clinic(String name, String fee) {
+        return new DoctorLocationService.ClinicDetails(name, "123 Main Road", null, "Central",
+                "Pune", "Maharashtra", "411001", "0205550100", new BigDecimal(fee), true);
+    }
+
+    @Test
+    void verificationRecordsPrincipalDerivedActorsAndRestrictsDocumentAccess() {
+        Doctor doctor = doctor();
+        var owner = authentication(doctor.getUser());
+        var otherDoctor = authentication(doctor().getUser());
+        var admin = authentication(transaction(() -> user(Role.ADMIN)));
+        String idKey = "verification/" + doctor.getId() + "/id-proof/" + UUID.randomUUID();
+        String qualificationKey = "verification/" + doctor.getId() + "/qualification/" + UUID.randomUUID();
+        verificationService.replaceCredentials(doctor.getId(),
+                new DoctorVerificationService.Credentials("REG-42", "Council", 2020, idKey, qualificationKey), owner);
+
+        assertThatThrownBy(() -> verificationService.authorizedDocumentKey(
+                doctor.getId(), DoctorVerificationService.DocumentKind.ID_PROOF, otherDoctor))
+                .isInstanceOf(ForbiddenException.class);
+        assertThat(verificationService.authorizedDocumentKey(
+                doctor.getId(), DoctorVerificationService.DocumentKind.ID_PROOF, admin)).isEqualTo(idKey);
+
+        verificationService.transition(doctor.getId(), VerificationStatus.SUBMITTED, null, owner);
+        verificationService.transition(doctor.getId(), VerificationStatus.UNDER_REVIEW, null, admin);
+        verificationService.transition(doctor.getId(), VerificationStatus.VERIFIED, null, admin);
+
+        transaction(() -> {
+            assertThat(entityManager.find(Doctor.class, doctor.getId()).getVerificationStatus())
+                    .isEqualTo(VerificationStatus.VERIFIED);
+            var events = entityManager.createQuery("""
+                    SELECT h FROM DoctorVerificationHistory h WHERE h.doctor.id = :doctorId ORDER BY h.id
+                    """, DoctorVerificationHistory.class).setParameter("doctorId", doctor.getId()).getResultList();
+            assertThat(events).extracting(DoctorVerificationHistory::getActorRole)
+                    .containsExactly(VerificationActorRole.DOCTOR, VerificationActorRole.ADMIN, VerificationActorRole.ADMIN);
+            assertThat(events.getFirst().getActorUser().getId()).isEqualTo(doctor.getUser().getId());
+            assertThat(events.getFirst().getEvidenceMetadata()).containsKeys("idProofVersion", "qualificationVersion");
+            return null;
+        });
+    }
+
+    private UsernamePasswordAuthenticationToken authentication(User user) {
+        var principal = new LocalAccount.PasswordPrincipal(account(user), "unused", user.getRole());
+        return UsernamePasswordAuthenticationToken.authenticated(principal, null, principal.getAuthorities());
+    }
+
+    @ParameterizedTest
+    @EnumSource(ConsultationMode.class)
+    void containedBookingAllowsAnEditInItsOriginalModeAndLocation(ConsultationMode mode) {
+        Doctor doctor = doctor();
+        Patient patient = patient();
+        Long clinicId = createClinicAndSetVideoFee(doctor);
+        var proposed = request(doctor, day, "09:00", "10:30");
+        proposed.setConsultationMode(mode);
+        proposed.setLocationId(mode == ConsultationMode.IN_CLINIC ? clinicId : null);
+        var window = availabilityService.createAvailability(proposed, ADMIN, true);
+        var bookedSlot = generate(window).get(1);
+        var booking = transaction(() -> {
+            AppointmentSlot stored = entityManager.find(AppointmentSlot.class, bookedSlot.getId());
+            stored.setStatus(SlotStatus.BOOKED);
+            return storeAppointment(patient, stored, AppointmentStatus.CONFIRMED);
+        });
+
+        proposed.setStartTime(LocalTime.of(9, 30));
+        proposed.setEndTime(LocalTime.of(10, 0));
+        var updated = availabilityService.updateAvailability(window.getId(), proposed, ADMIN, true);
+        assertThat(updated.getRevision()).isEqualTo(1);
+        assertThat(updated.getConsultationMode()).isEqualTo(mode);
+
+        proposed.setConsultationMode(mode == ConsultationMode.IN_CLINIC ? ConsultationMode.VIDEO : ConsultationMode.IN_CLINIC);
+        proposed.setLocationId(mode == ConsultationMode.VIDEO ? clinicId : null);
+        assertThatThrownBy(() -> availabilityService.updateAvailability(window.getId(), proposed, ADMIN, true))
+                .isInstanceOf(ConflictException.class).hasMessageContaining("original doctor, mode and location");
+
+        if (mode == ConsultationMode.IN_CLINIC) {
+            var otherClinic = locationService.create(doctor.getId(), clinic("Other clinic", "10.00"),
+                    authentication(doctor.getUser()));
+            proposed.setConsultationMode(ConsultationMode.IN_CLINIC);
+            proposed.setLocationId(otherClinic.getId());
+            assertThatThrownBy(() -> availabilityService.updateAvailability(window.getId(), proposed, ADMIN, true))
+                    .isInstanceOf(ConflictException.class).hasMessageContaining("original doctor, mode and location");
+        }
+
+        var storedBooking = appointmentRepository.findById(booking.getId()).orElseThrow();
+        assertThat(storedBooking.getSlot().getId()).isEqualTo(bookedSlot.getId());
+        assertThat(storedBooking.getSlot().getStatus()).isEqualTo(SlotStatus.BOOKED);
+        assertThat(storedBooking.getConsultationMode()).isEqualTo(mode);
+    }
+
+    @Test
+    void truncationRejectsBookingOutsideTheProposedIntervalEvenOnAnOlderRevision() {
+        Doctor doctor = doctor();
+        var window = create(doctor, "09:00", "11:00");
+        var booking = book(patient(), doctor, generate(window).getLast());
+        var widened = edit(window, "08:30", "11:00");
+        assertThat(widened.getRevision()).isEqualTo(1);
+
+        assertThatThrownBy(() -> edit(window, "08:30", "10:00"))
+                .isInstanceOf(ConflictException.class).hasMessageContaining("must contain");
+        assertThat(availabilityService.getAvailabilityById(window.getId()).getEndTime()).isEqualTo(LocalTime.of(11, 0));
+        var stored = appointmentRepository.findById(booking.getId()).orElseThrow();
+        assertThat(stored.getStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
+        assertThat(stored.getSlot().getId()).isEqualTo(booking.getSlot().getId());
+        assertThat(stored.getSlot().getStatus()).isEqualTo(SlotStatus.BOOKED);
+        assertThat(stored.getSlot().getAvailabilityRevision()).isZero();
+    }
+
+    @ParameterizedTest
+    @EnumSource(ConsultationMode.class)
+    void legacyConfirmedBookingBlocksClassificationUntilReconciled(ConsultationMode mode) {
+        Doctor doctor = doctor();
+        Long clinicId = createClinicAndSetVideoFee(doctor);
+        var window = create(doctor, "09:00", "10:00");
+        var booking = book(patient(), doctor, generate(window).getFirst());
+        var proposed = request(doctor, day, "09:00", "10:00");
+        proposed.setConsultationMode(mode);
+        proposed.setLocationId(mode == ConsultationMode.IN_CLINIC ? clinicId : null);
+
+        assertThatThrownBy(() -> availabilityService.updateAvailability(window.getId(), proposed, ADMIN, true))
+                .isInstanceOf(ConflictException.class).hasMessageContaining("Legacy confirmed appointments must be reconciled");
+        assertThat(availabilityService.getAvailabilityById(window.getId()).getRevision()).isZero();
+        var stored = appointmentRepository.findById(booking.getId()).orElseThrow();
+        assertThat(stored.getLocation()).isNull();
+        assertThat(stored.getConsultationMode()).isNull();
+        assertThat(stored.getSlot().getId()).isEqualTo(booking.getSlot().getId());
+        assertThat(stored.getSlot().isRetired()).isFalse();
+    }
+
+    @Test
+    void reassignmentWithOnlyTerminalSourceBookingsStillChecksTheTargetSchedule() {
+        Doctor source = doctor();
+        Doctor target = doctor();
+        var window = create(source, "09:00", "10:00");
+        Patient patient = patient();
+        var booking = book(patient, source, generate(window).getFirst());
+        appointmentService.cancelAppointment(booking.getId(), account(patient.getUser()), "ROLE_PATIENT");
+        create(target, "09:00", "10:00");
+
+        assertThatThrownBy(() -> availabilityService.updateAvailability(window.getId(),
+                request(target, day, "09:00", "10:00"), ADMIN, true))
+                .isInstanceOf(BadRequestException.class).hasMessageContaining("already has availability");
+        var moved = availabilityService.updateAvailability(window.getId(),
+                request(target, day, "10:00", "11:00"), ADMIN, true);
+        assertThat(moved.getDoctor().getId()).isEqualTo(target.getId());
+        var stored = appointmentRepository.findById(booking.getId()).orElseThrow();
+        assertThat(stored.getDoctor().getId()).isEqualTo(source.getId());
+        assertThat(stored.getSlot().getId()).isEqualTo(booking.getSlot().getId());
+    }
+
+    @Test
+    void verificationHistoryPersistsAbsentEvidenceAsNull() {
+        Doctor doctor = doctor();
+        Long eventId = transaction(() -> {
+            var event = new DoctorVerificationHistory(doctor, null, VerificationActorRole.SYSTEM,
+                    VerificationStatus.UNVERIFIED, VerificationStatus.UNDER_REVIEW, null, null);
+            entityManager.persist(event);
+            return event.getId();
+        });
+        transaction(() -> {
+            assertThat(entityManager.find(DoctorVerificationHistory.class, eventId).getEvidenceMetadata()).isNull();
+            return null;
+        });
+    }
+
+    private Long createClinicAndSetVideoFee(Doctor doctor) {
+        var actor = authentication(doctor.getUser());
+        locationService.setVideoFee(doctor.getId(), new BigDecimal("20.00"), actor);
+        return locationService.create(doctor.getId(), clinic("Clinic", "10.00"), actor).getId();
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"shrink", "shift", "date", "reassign"})
@@ -93,23 +315,32 @@ class ScheduleReconciliationTest {
         LocalDate targetDate = edit.equals("date") ? day.plusDays(1) : day;
         String start = edit.equals("shift") ? "09:15" : "09:00";
         String end = edit.equals("shrink") ? "10:00" : "10:30";
-        DoctorAvailability updated = availabilityService.updateAvailability(original.getId(),
-                request(target, targetDate, start, end), ADMIN, true);
-
-        assertThat(updated.getRevision()).isEqualTo(1);
-        assertThat(slotService.getAvailableSlots(originalDoctor.getId(), day)).isEmpty();
-        assertThat(slotService.getAvailableSlots(originalDoctor.getId(), null)).isEmpty();
+        var proposed = request(target, targetDate, start, end);
+        boolean allowed = edit.equals("shrink");
+        if (allowed) {
+            DoctorAvailability updated = availabilityService.updateAvailability(original.getId(), proposed, ADMIN, true);
+            assertThat(updated.getRevision()).isEqualTo(1);
+            assertThat(slotService.getAvailableSlots(originalDoctor.getId(), day)).isEmpty();
+            assertThat(slotService.getAvailableSlots(originalDoctor.getId(), null)).isEmpty();
+            assertThatThrownBy(() -> book(patient, originalDoctor, unbooked))
+                    .isInstanceOf(BadRequestException.class).hasMessage("Appointment slot is not available");
+        } else {
+            assertThatThrownBy(() -> availabilityService.updateAvailability(original.getId(), proposed, ADMIN, true))
+                    .isInstanceOf(ConflictException.class)
+                    .hasMessageContaining(edit.equals("reassign") ? "Cannot reassign" : "must contain");
+            var unchanged = availabilityService.getAvailabilityById(original.getId());
+            assertThat(unchanged.getDoctor().getId()).isEqualTo(originalDoctor.getId());
+            assertThat(unchanged.getRevision()).isZero();
+        }
         assertThat(slotService.getSlotById(booked.getId())).satisfies(stored -> {
-            assertThat(stored.isRetired()).isTrue();
+            assertThat(stored.isRetired()).isEqualTo(allowed);
             assertThat(stored.getStatus()).isEqualTo(SlotStatus.BOOKED);
             assertThat(stored.getAvailabilityRevision()).isZero();
         });
         assertThat(slotService.getSlotById(unbooked.getId())).satisfies(stored -> {
-            assertThat(stored.isRetired()).isTrue();
+            assertThat(stored.isRetired()).isEqualTo(allowed);
             assertThat(stored.getStatus()).isEqualTo(SlotStatus.AVAILABLE);
         });
-        assertThatThrownBy(() -> book(patient, originalDoctor, unbooked))
-                .isInstanceOf(BadRequestException.class).hasMessage("Appointment slot is not available");
 
         AppointmentController controller = new AppointmentController(appointmentService);
         for (User viewer : List.of(patient.getUser(), originalDoctor.getUser())) {
@@ -155,8 +386,11 @@ class ScheduleReconciliationTest {
         Doctor doctor = doctor();
         Patient patient = patient();
         DoctorAvailability original = create(doctor, "09:00", "10:00");
-        AppointmentSlot booked = generate(original).getFirst();
-        book(patient, doctor, booked);
+        transaction(() -> {
+            AppointmentSlot occupied = storeSlot(doctor, day, "09:00", "09:30", null);
+            occupied.setStatus(SlotStatus.BOOKED);
+            return storeAppointment(patient, occupied, AppointmentStatus.CONFIRMED);
+        });
         assertThat(generate(edit(original, "09:15", "10:15")))
                 .extracting(AppointmentSlot::getStartTime).containsExactly(LocalTime.of(9, 45));
 
@@ -238,7 +472,7 @@ class ScheduleReconciliationTest {
     }
 
     @Test
-    void completionUsesOriginalSlotEndEvenAfterAvailabilityMovesToTheFuture() {
+    void completionKeepsOriginalSlotWhenAvailabilityMovesAfterCompletion() {
         Doctor doctor = doctor();
         Patient patient = patient();
         LocalDate yesterday = day.minusDays(3);
@@ -255,11 +489,14 @@ class ScheduleReconciliationTest {
         });
         Long availabilityId = transaction(() ->
                 slotRepository.findById(appointment.getSlot().getId()).orElseThrow().getAvailability().getId());
-        availabilityService.updateAvailability(availabilityId, request(doctor, day, "11:00", "12:00"), ADMIN, true);
+        var future = request(doctor, day, "11:00", "12:00");
+        assertThatThrownBy(() -> availabilityService.updateAvailability(availabilityId, future, ADMIN, true))
+                .isInstanceOf(ConflictException.class).hasMessageContaining("must contain");
         Appointment completed = appointmentService.completeAppointment(appointment.getId(),
                 account(doctor.getUser()), "ROLE_DOCTOR");
         assertThat(completed.getStatus()).isEqualTo(AppointmentStatus.COMPLETED);
-        assertThat(completed.getSlot()).satisfies(slot -> {
+        availabilityService.updateAvailability(availabilityId, future, ADMIN, true);
+        assertThat(slotService.getSlotById(completed.getSlot().getId())).satisfies(slot -> {
             assertThat(slot.isRetired()).isTrue();
             assertThat(slot.getDate()).isEqualTo(yesterday);
             assertThat(slot.getEndTime()).isEqualTo(LocalTime.of(9, 30));
@@ -349,7 +586,7 @@ class ScheduleReconciliationTest {
         AppointmentSlot slot = generate(original).getFirst();
         Appointment appointment = book(patient, doctor, slot);
 
-        Appointment cancelled = race(() -> edit(original, "11:00", "12:00"), () ->
+        Appointment cancelled = race(() -> edit(original, "09:00", "10:30"), () ->
                 appointmentService.cancelAppointment(appointment.getId(), account(patient.getUser()), "ROLE_PATIENT"));
 
         assertThat(cancelled.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
@@ -463,6 +700,9 @@ class ScheduleReconciliationTest {
         appointment.setDoctor(slot.getDoctor());
         appointment.setSlot(slot);
         appointment.setStatus(status);
+        if (slot.getOfferVersion() != null) {
+            appointment.captureOffer(slot);
+        }
         entityManager.persist(appointment);
         return appointment;
     }

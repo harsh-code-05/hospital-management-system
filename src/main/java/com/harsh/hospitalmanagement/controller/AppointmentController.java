@@ -154,6 +154,12 @@ public class AppointmentController {
         response.setPatient(patientResponse);
         response.setDoctor(doctorResponse);
         response.setSlot(slotResponse);
+        if (appointment.getOfferVersion() != null) {
+            response.setOfferSnapshot(new AppointmentResponse.OfferSnapshot(
+                    appointment.getLocation() == null ? null : appointment.getLocation().getId(),
+                    appointment.getConsultationMode(), appointment.getClinicNameSnapshot(),
+                    appointment.getClinicAddressSnapshot(), appointment.getConsultationFee(), appointment.getOfferVersion()));
+        }
 
         return response;
     }

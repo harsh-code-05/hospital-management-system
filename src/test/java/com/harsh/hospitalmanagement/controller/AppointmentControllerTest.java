@@ -1,6 +1,6 @@
 package com.harsh.hospitalmanagement.controller;
 
-import com.harsh.hospitalmanagement.config.SecurityConfig;
+import com.harsh.hospitalmanagement.security.WithMvcSecurity;
 import com.harsh.hospitalmanagement.entity.*;
 import com.harsh.hospitalmanagement.enums.AppointmentStatus;
 import com.harsh.hospitalmanagement.enums.Role;
@@ -10,13 +10,10 @@ import com.harsh.hospitalmanagement.exception.ForbiddenException;
 import com.harsh.hospitalmanagement.exception.GlobalExceptionHandler;
 import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 import com.harsh.hospitalmanagement.service.AppointmentService;
-import com.harsh.hospitalmanagement.service.CustomOidcUserService;
-import com.harsh.hospitalmanagement.service.CustomUserDetailsService;
 import com.harsh.hospitalmanagement.security.LocalAccount;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import com.harsh.hospitalmanagement.security.WithLocalUser;
@@ -46,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 @WebMvcTest(controllers = {AppointmentController.class, GlobalExceptionHandler.class})
-@Import(SecurityConfig.class)
+@WithMvcSecurity
 class AppointmentControllerTest {
 
     @Autowired
@@ -54,12 +51,6 @@ class AppointmentControllerTest {
 
     @MockitoBean
     private AppointmentService appointmentService;
-
-    @MockitoBean
-    private CustomUserDetailsService customUserDetailsService;
-
-    @MockitoBean
-    private CustomOidcUserService customOidcUserService;
 
     private Appointment createMockAppointment(Long id, AppointmentStatus status) {
         User patientUser = new User();

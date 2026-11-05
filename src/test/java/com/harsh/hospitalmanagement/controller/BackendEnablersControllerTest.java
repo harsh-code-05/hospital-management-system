@@ -1,6 +1,6 @@
 package com.harsh.hospitalmanagement.controller;
 
-import com.harsh.hospitalmanagement.config.SecurityConfig;
+import com.harsh.hospitalmanagement.security.WithMvcSecurity;
 import com.harsh.hospitalmanagement.dto.*;
 import com.harsh.hospitalmanagement.entity.*;
 import com.harsh.hospitalmanagement.enums.Role;
@@ -10,7 +10,6 @@ import com.harsh.hospitalmanagement.service.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
 import com.harsh.hospitalmanagement.security.WithLocalUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -33,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         AppointmentSlotController.class,
         GlobalExceptionHandler.class
 })
-@Import(SecurityConfig.class)
+@WithMvcSecurity
 class BackendEnablersControllerTest {
 
     @Autowired
@@ -50,12 +49,6 @@ class BackendEnablersControllerTest {
 
     @MockitoBean
     private AppointmentSlotService appointmentSlotService;
-
-    @MockitoBean
-    private CustomUserDetailsService customUserDetailsService;
-
-    @MockitoBean
-    private CustomOidcUserService customOidcUserService;
 
     @Test
     void getAllSpecializations_shouldReturn200_publiclyAccessible() throws Exception {

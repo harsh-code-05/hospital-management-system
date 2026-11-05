@@ -6,8 +6,10 @@ import com.harsh.hospitalmanagement.entity.AppointmentSlot;
 import com.harsh.hospitalmanagement.entity.Doctor;
 import com.harsh.hospitalmanagement.entity.Patient;
 import com.harsh.hospitalmanagement.enums.AppointmentStatus;
+import com.harsh.hospitalmanagement.enums.Role;
 import com.harsh.hospitalmanagement.enums.SlotStatus;
 import com.harsh.hospitalmanagement.exception.BadRequestException;
+import com.harsh.hospitalmanagement.exception.ConflictException;
 import com.harsh.hospitalmanagement.exception.ForbiddenException;
 import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 import com.harsh.hospitalmanagement.repository.AppointmentRepository;
@@ -16,6 +18,7 @@ import com.harsh.hospitalmanagement.repository.DoctorRepository;
 import com.harsh.hospitalmanagement.repository.PatientRepository;
 import org.springframework.stereotype.Service;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -129,21 +132,17 @@ public class AppointmentService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Doctor not found"));
 
-        long slotDoctorId = appointmentSlotRepository.findDoctorIdById(slotId)
-                .orElseThrow(() -> new ResourceNotFoundException("Appointment slot not found"));
-        lockDoctorSchedule(slotDoctorId);
-
-        AppointmentSlot slot = appointmentSlotRepository.findByIdForUpdate(slotId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Appointment slot not found"));
+        AppointmentSlot slot = lockOffer(slotId);
+        if (slot.getOfferVersion() != null) {
+            throw new ConflictException("OFFER_REQUIRES_UPGRADE", "Refresh to book this updated offer");
+        }
 
         if (slot.getStatus() != SlotStatus.AVAILABLE) {
             throw new BadRequestException(
                     "Appointment slot is not available");
         }
 
-        if (slot.getDoctor().getId() != slotDoctorId || !slot.getDoctor().getId().equals(doctor.getId())) {
+        if (!slot.getDoctor().getId().equals(doctor.getId())) {
             throw new BadRequestException(
                     "Slot does not belong to this doctor");
         }
@@ -162,13 +161,55 @@ public class AppointmentService {
             throw new BadRequestException("Selected appointment date does not match the slot date");
         }
 
-        if (appointmentRepository.existsOverlappingConfirmedAppointment(
-                slotDoctorId, slot.getDate(), slot.getStartTime(), slot.getEndTime())) {
+        if (hasOverlappingBooking(slot)) {
             throw new BadRequestException("Doctor already has an appointment during this time");
         }
 
+        return confirmBooking(patient, slot, reason, actor);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public Appointment bookVersionedOffer(Long slotId, LocalDate expectedDate, UUID offerVersion, String reason,
+                                           LocalAccount actor) {
+        Patient patient = patientRepository.findByUser_Id(actor.id())
+                .orElseThrow(() -> new ResourceNotFoundException("Patient profile not found"));
+        if (patient.getUser().getRole() != Role.PATIENT) {
+            throw new ForbiddenException("Only patients can book an appointment");
+        }
+        if (expectedDate == null || offerVersion == null) {
+            throw new BadRequestException("Expected date and offer version are required");
+        }
+        AppointmentSlot slot = lockOffer(slotId);
+        if (!offerVersion.equals(slot.getOfferVersion()) || !expectedDate.equals(slot.getDate())
+                || !appointmentSlotRepository.isDiscoverableOffer(slotId)
+                || slot.getDate().atTime(slot.getStartTime()).isBefore(LocalDateTime.now())
+                || hasOverlappingBooking(slot)) {
+            throw new ConflictException("OFFER_CHANGED", "This appointment offer changed. Refresh the available slots");
+        }
+        return confirmBooking(patient, slot, reason, actor);
+    }
+
+    private AppointmentSlot lockOffer(Long slotId) {
+        long doctorId = appointmentSlotRepository.findDoctorIdById(slotId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment slot not found"));
+        lockDoctorSchedule(doctorId);
+        AppointmentSlot slot = appointmentSlotRepository.findByIdForUpdate(slotId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment slot not found"));
+        if (slot.getDoctor().getId() != doctorId) {
+            throw new ConflictException("OFFER_CHANGED", "This appointment offer changed. Refresh the available slots");
+        }
+        return slot;
+    }
+
+    private boolean hasOverlappingBooking(AppointmentSlot slot) {
+        return appointmentRepository.existsOverlappingConfirmedAppointment(
+                slot.getDoctor().getId(), slot.getDate(), slot.getStartTime(), slot.getEndTime());
+    }
+
+    private Appointment confirmBooking(Patient patient, AppointmentSlot slot, String reason, LocalAccount actor) {
         slot.setStatus(SlotStatus.BOOKED);
 
+        Doctor doctor = slot.getDoctor();
         Appointment appointment = new Appointment();
 
         appointment.setPatient(patient);
@@ -177,6 +218,9 @@ public class AppointmentService {
         appointment.setReason(reason);
         appointment.setStatus(AppointmentStatus.CONFIRMED);
         appointment.setCreatedAt(LocalDateTime.now());
+        if (slot.getOfferVersion() != null) {
+            appointment.captureOffer(slot);
+        }
 
         Appointment savedAppointment = appointmentRepository.save(appointment);
 
@@ -237,6 +281,9 @@ public class AppointmentService {
         appointment.setStatus(AppointmentStatus.CANCELLED);
         // Release occupancy. A retired slot stays withdrawn until explicitly republished.
         slot.setStatus(SlotStatus.AVAILABLE);
+        if (!slot.isRetired() && slot.getOfferVersion() != null) {
+            slot.setOfferVersion(UUID.randomUUID());
+        }
 
         Appointment savedAppointment = appointmentRepository.save(appointment);
 

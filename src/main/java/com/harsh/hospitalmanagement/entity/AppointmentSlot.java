@@ -1,5 +1,6 @@
 package com.harsh.hospitalmanagement.entity;
 
+import com.harsh.hospitalmanagement.enums.ConsultationMode;
 import com.harsh.hospitalmanagement.enums.SlotStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -7,8 +8,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -59,5 +62,19 @@ public class AppointmentSlot {
 
     @Column(nullable = false)
     private boolean retired = true;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "location_id", foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private DoctorLocation location;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "consultation_mode", length = 16)
+    private ConsultationMode consultationMode;
+
+    @Column(precision = 12, scale = 2)
+    private BigDecimal fee;
+
+    @Column(name = "offer_version")
+    private UUID offerVersion;
 
 }

@@ -15,6 +15,8 @@ public interface DoctorAvailabilityRepository
     @Query("SELECT a.doctor.id FROM DoctorAvailability a WHERE a.id = :id")
     Optional<Long> findDoctorIdById(@Param("id") Long id);
 
+    Optional<DoctorAvailability> findByIdAndDoctor_User_Id(Long id, Long ownerUserId);
+
     @Query("""
             SELECT COUNT(a) > 0
             FROM DoctorAvailability a

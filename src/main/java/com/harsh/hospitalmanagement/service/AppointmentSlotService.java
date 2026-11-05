@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,6 +50,14 @@ public class AppointmentSlotService {
             return appointmentSlotRepository.findBookableByDoctorAndDate(doctorId, date);
         }
         return appointmentSlotRepository.findBookableByDoctor(doctorId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AppointmentSlot> getDiscoverableOffers(Long doctorId, LocalDate date) {
+        LocalDateTime now = LocalDateTime.now();
+        return appointmentSlotRepository.findDiscoverableOffers(doctorId, date).stream()
+                .filter(slot -> !slot.getDate().atTime(slot.getStartTime()).isBefore(now))
+                .toList();
     }
 
     public AppointmentSlot getSlotById(Long id) {
@@ -87,6 +96,8 @@ public class AppointmentSlotService {
             }
         }
 
+        ConsultationTerms terms = ConsultationTerms.forSchedule(
+                availability.getDoctor(), availability.getConsultationMode(), availability.getLocation());
         LocalTime currentTime = availability.getStartTime();
         LocalTime endTime = availability.getEndTime();
         if (!currentTime.isBefore(endTime)) {
@@ -113,10 +124,11 @@ public class AppointmentSlotService {
                     slot.setDoctor(availability.getDoctor());
                 }
                 // Reissue only an unoccupied, retired row with the exact same coordinates.
-                if (slot.isRetired() && slot.getStatus() == SlotStatus.AVAILABLE) {
+                if (slot.isRetired() && slot.getStatus() == SlotStatus.AVAILABLE
+                        && (terms.mode() != null || slot.getOfferVersion() == null)) {
                     slot.setAvailability(availability);
                     slot.setAvailabilityRevision(availability.getRevision());
-                    slot.setRetired(false);
+                    terms.publishOn(slot);
                     slots.add(slot);
                 }
             }

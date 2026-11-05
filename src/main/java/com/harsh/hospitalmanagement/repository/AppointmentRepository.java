@@ -29,6 +29,23 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             @Param("startTime") LocalTime startTime,
             @Param("endTime") LocalTime endTime);
 
+    @Query("""
+            SELECT a FROM Appointment a JOIN FETCH a.slot s
+            WHERE a.doctor.id = :doctorId AND s.date = :date
+            AND a.status = com.harsh.hospitalmanagement.enums.AppointmentStatus.CONFIRMED
+            AND s.startTime < :endTime AND s.endTime > :startTime
+            """)
+    List<Appointment> findOverlappingConfirmedAppointments(
+            @Param("doctorId") Long doctorId, @Param("date") LocalDate date,
+            @Param("startTime") LocalTime startTime, @Param("endTime") LocalTime endTime);
+
+    @Query("""
+            SELECT a FROM Appointment a JOIN FETCH a.slot s
+            WHERE s.availability.id = :availabilityId
+            AND a.status = com.harsh.hospitalmanagement.enums.AppointmentStatus.CONFIRMED
+            """)
+    List<Appointment> findConfirmedByAvailabilityId(@Param("availabilityId") Long availabilityId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT a FROM Appointment a WHERE a.id = :id")
     Optional<Appointment> findByIdForUpdate(@Param("id") Long id);

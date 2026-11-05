@@ -1,5 +1,6 @@
 package com.harsh.hospitalmanagement.dto;
 
+import com.harsh.hospitalmanagement.enums.ConsultationMode;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -14,6 +15,8 @@ public class DoctorAvailabilityResponse {
     private LocalDate date;
     private LocalTime startTime;
     private LocalTime endTime;
+    private Long locationId;
+    private ConsultationMode consultationMode;
 
     private DoctorResponse doctor;
 }

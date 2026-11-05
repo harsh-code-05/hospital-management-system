@@ -1,5 +1,6 @@
 package com.harsh.hospitalmanagement.entity;
 
+import com.harsh.hospitalmanagement.enums.ConsultationMode;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -33,4 +34,13 @@ public class DoctorAvailability {
     @ManyToOne
     @JoinColumn(name = "doctor_id", nullable = false)
     private Doctor doctor;
+
+    // DISCO-01 owns the composite FK. Hibernate writes location_id independently of doctor_id.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "location_id", foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private DoctorLocation location;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "consultation_mode", nullable = false, length = 16)
+    private ConsultationMode consultationMode = ConsultationMode.IN_CLINIC;
 }

@@ -184,6 +184,8 @@ public class SecurityConfig {
                                 "/api/specializations"
                         ).permitAll()
 
+                        .requestMatchers(HttpMethod.GET, "/api/v2/discovery/**").permitAll()
+
                         // Doctor application: public registration (unauthenticated)
                         .requestMatchers(
                                 HttpMethod.POST,
@@ -276,7 +278,7 @@ public class SecurityConfig {
 
                         .requestMatchers(
                                 HttpMethod.POST,
-                                "/api/appointments/**"
+                                "/api/appointments/**", "/api/v2/appointments"
                         ).hasRole("PATIENT")
 
 

@@ -8,7 +8,9 @@ import com.harsh.hospitalmanagement.enums.AuditEventType;
 import com.harsh.hospitalmanagement.enums.Role;
 import com.harsh.hospitalmanagement.exception.BadRequestException;
 import com.harsh.hospitalmanagement.exception.ForbiddenException;
+import com.harsh.hospitalmanagement.repository.AppointmentRepository;
 import com.harsh.hospitalmanagement.repository.AppointmentSlotRepository;
+import com.harsh.hospitalmanagement.repository.DoctorLocationRepository;
 import com.harsh.hospitalmanagement.repository.DoctorAvailabilityRepository;
 import com.harsh.hospitalmanagement.repository.DoctorRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +42,12 @@ class DoctorAvailabilityServiceTest {
     private AppointmentSlotRepository appointmentSlotRepository;
 
     @Mock
+    private AppointmentRepository appointmentRepository;
+
+    @Mock
+    private DoctorLocationRepository doctorLocationRepository;
+
+    @Mock
     private AuditLogService auditLogService;
 
     private DoctorAvailabilityService service;
@@ -50,6 +58,8 @@ class DoctorAvailabilityServiceTest {
                 doctorAvailabilityRepository,
                 doctorRepository,
                 appointmentSlotRepository,
+                appointmentRepository,
+                doctorLocationRepository,
                 auditLogService
         );
     }

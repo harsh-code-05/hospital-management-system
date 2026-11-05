@@ -1,17 +1,14 @@
 package com.harsh.hospitalmanagement.controller;
 
-import com.harsh.hospitalmanagement.config.SecurityConfig;
+import com.harsh.hospitalmanagement.security.WithMvcSecurity;
 import com.harsh.hospitalmanagement.entity.AuditLog;
 import com.harsh.hospitalmanagement.enums.AuditEventType;
 import com.harsh.hospitalmanagement.exception.GlobalExceptionHandler;
 import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 import com.harsh.hospitalmanagement.service.AuditLogService;
-import com.harsh.hospitalmanagement.service.CustomOidcUserService;
-import com.harsh.hospitalmanagement.service.CustomUserDetailsService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
 import com.harsh.hospitalmanagement.security.WithLocalUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -25,7 +22,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = {AuditLogController.class, GlobalExceptionHandler.class})
-@Import(SecurityConfig.class)
+@WithMvcSecurity
 class AuditLogControllerTest {
 
     @Autowired
@@ -33,12 +30,6 @@ class AuditLogControllerTest {
 
     @MockitoBean
     private AuditLogService auditLogService;
-
-    @MockitoBean
-    private CustomUserDetailsService customUserDetailsService;
-
-    @MockitoBean
-    private CustomOidcUserService customOidcUserService;
 
     private AuditLog buildLog() {
         return new AuditLog(

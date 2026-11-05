@@ -112,6 +112,8 @@ public class DoctorAvailabilityController {
         response.setDate(availability.getDate());
         response.setStartTime(availability.getStartTime());
         response.setEndTime(availability.getEndTime());
+        response.setLocationId(availability.getLocation() == null ? null : availability.getLocation().getId());
+        response.setConsultationMode(availability.getConsultationMode());
         response.setDoctor(doctorResponse);
 
         return response;

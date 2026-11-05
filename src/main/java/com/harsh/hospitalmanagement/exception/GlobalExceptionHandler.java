@@ -109,6 +109,9 @@ public class GlobalExceptionHandler {
         response.put("timestamp", LocalDateTime.now());
         response.put("status", HttpStatus.CONFLICT.value());
         response.put("message", ex.getMessage());
+        if (ex.getCode() != null) {
+            response.put("code", ex.getCode());
+        }
 
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)

@@ -1,5 +1,6 @@
 package com.harsh.hospitalmanagement.dto;
 
+import com.harsh.hospitalmanagement.enums.ConsultationMode;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
@@ -22,4 +23,7 @@ public class DoctorAvailabilityRequest {
 
     @NotNull(message = "End time is required")
     private LocalTime endTime;
+
+    private Long locationId;
+    private ConsultationMode consultationMode;
 }

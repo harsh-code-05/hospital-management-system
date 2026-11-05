@@ -1,6 +1,6 @@
 package com.harsh.hospitalmanagement.controller;
 
-import com.harsh.hospitalmanagement.config.SecurityConfig;
+import com.harsh.hospitalmanagement.security.WithMvcSecurity;
 import com.harsh.hospitalmanagement.dto.PatientProfileRequest;
 import com.harsh.hospitalmanagement.entity.Patient;
 import com.harsh.hospitalmanagement.entity.User;
@@ -8,13 +8,10 @@ import com.harsh.hospitalmanagement.enums.Role;
 import com.harsh.hospitalmanagement.exception.ConflictException;
 import com.harsh.hospitalmanagement.exception.GlobalExceptionHandler;
 import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
-import com.harsh.hospitalmanagement.service.CustomOidcUserService;
-import com.harsh.hospitalmanagement.service.CustomUserDetailsService;
 import com.harsh.hospitalmanagement.service.PatientService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import com.harsh.hospitalmanagement.security.WithLocalUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -34,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = {PatientController.class, GlobalExceptionHandler.class})
-@Import(SecurityConfig.class)
+@WithMvcSecurity
 class PatientControllerTest {
 
     @Autowired
@@ -42,12 +39,6 @@ class PatientControllerTest {
 
     @MockitoBean
     private PatientService patientService;
-
-    @MockitoBean
-    private CustomUserDetailsService customUserDetailsService;
-
-    @MockitoBean
-    private CustomOidcUserService customOidcUserService;
 
     @Test
     @WithLocalUser(username = "patient@example.com", roles = "PATIENT")

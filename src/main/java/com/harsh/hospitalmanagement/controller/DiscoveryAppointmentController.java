@@ -1,0 +1,66 @@
+package com.harsh.hospitalmanagement.controller;
+
+import com.harsh.hospitalmanagement.enums.AppointmentStatus;
+import com.harsh.hospitalmanagement.enums.ConsultationMode;
+import com.harsh.hospitalmanagement.security.LocalAccount;
+import com.harsh.hospitalmanagement.service.AppointmentService;
+import com.harsh.hospitalmanagement.service.AppointmentSlotService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v2")
+public class DiscoveryAppointmentController {
+
+    private final AppointmentSlotService slots;
+    private final AppointmentService appointments;
+
+    public DiscoveryAppointmentController(AppointmentSlotService slots, AppointmentService appointments) {
+        this.slots = slots;
+        this.appointments = appointments;
+    }
+
+    @GetMapping("/discovery/doctors/{doctorId}/slots")
+    public List<SlotOffer> getOffers(@PathVariable Long doctorId, @RequestParam LocalDate date) {
+        return slots.getDiscoverableOffers(doctorId, date).stream()
+                .map(slot -> new SlotOffer(slot.getId(), slot.getDate(), slot.getStartTime(), slot.getEndTime(),
+                        slot.getLocation() == null ? null : slot.getLocation().getId(), slot.getConsultationMode(),
+                        slot.getFee().toPlainString(), "INR", slot.getOfferVersion()))
+                .toList();
+    }
+
+    @PostMapping("/appointments")
+    public BookingResponse book(@Valid @RequestBody BookingRequest request, Authentication authentication) {
+        var appointment = appointments.bookVersionedOffer(request.slotId(), request.expectedDate(),
+                request.offerVersion(), request.reason(), LocalAccount.require(authentication));
+        return new BookingResponse(appointment.getId(), appointment.getStatus(),
+                appointment.getSlot().getId(), appointment.getSlot().getDate(),
+                appointment.getLocation() == null ? null : appointment.getLocation().getId(),
+                appointment.getConsultationMode(), appointment.getClinicNameSnapshot(),
+                appointment.getClinicAddressSnapshot(), appointment.getConsultationFee(), appointment.getOfferVersion());
+    }
+
+    public record SlotOffer(Long slotId, LocalDate date, LocalTime startTime, LocalTime endTime,
+                            Long locationId, ConsultationMode consultationMode, String fee, String currency,
+                            UUID offerVersion) {
+    }
+
+    public record BookingRequest(@NotNull Long slotId, @NotNull LocalDate expectedDate,
+                                 @NotNull UUID offerVersion, @NotBlank @Size(max = 255) String reason) {
+    }
+
+    public record BookingResponse(Long appointmentId, AppointmentStatus status, Long slotId, LocalDate date,
+                                  Long locationId, ConsultationMode consultationMode, String clinicName,
+                                  String clinicAddress, BigDecimal consultationFee, UUID offerVersion) {
+    }
+}

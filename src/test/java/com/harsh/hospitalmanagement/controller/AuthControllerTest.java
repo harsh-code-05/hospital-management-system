@@ -1,13 +1,11 @@
 package com.harsh.hospitalmanagement.controller;
 
-import com.harsh.hospitalmanagement.config.SecurityConfig;
+import com.harsh.hospitalmanagement.security.WithMvcSecurity;
 import com.harsh.hospitalmanagement.enums.AuditEventType;
 import com.harsh.hospitalmanagement.enums.Role;
 import com.harsh.hospitalmanagement.security.AuthenticationAudit;
 import com.harsh.hospitalmanagement.security.LocalAccount;
 import com.harsh.hospitalmanagement.service.AuditLogService;
-import com.harsh.hospitalmanagement.service.CustomOidcUserService;
-import com.harsh.hospitalmanagement.service.CustomUserDetailsService;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +35,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(AuthController.class)
-@Import({SecurityConfig.class, AuthenticationAudit.class})
+@WithMvcSecurity
+@Import(AuthenticationAudit.class)
 class AuthControllerTest {
     private static final String CONTEXT_KEY = HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY;
     private static final String LOGIN = """
@@ -52,12 +51,6 @@ class AuthControllerTest {
 
     @MockitoBean
     private AuditLogService auditLogService;
-
-    @MockitoBean
-    private CustomUserDetailsService customUserDetailsService;
-
-    @MockitoBean
-    private CustomOidcUserService customOidcUserService;
 
     @Test
     void passwordLoginRotatesSessionAndCsrfThenOnlyProtectedPostCanLogOut() throws Exception {
