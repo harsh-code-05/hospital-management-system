@@ -4,6 +4,7 @@ import api from '../api/axios';
 import { isDate, mutationErrorMessage, requireAppointmentResult, requirePatientProfileResult } from '../api/responseValidation';
 import { useAuth } from '../context/useAuth';
 import usePatientSlots from '../hooks/usePatientSlots';
+import PatientAIAssistant from '../components/PatientAIAssistant';
 import './PatientDashboard.css';
 
 function formatDate(dateStr) {
@@ -431,10 +432,21 @@ export default function PatientDashboard() {
         >
           My Profile
         </button>
+        <button
+          type="button"
+          className={`tab-btn ${activeTab === 'assistant' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveTab('assistant');
+            setGlobalNotice('');
+          }}
+        >
+          AI Assistant
+        </button>
       </nav>
 
       {/* Main Content Area */}
       <main className="dashboard-content">
+        {activeTab === 'assistant' && <PatientAIAssistant />}
         {/* Profile Uninitialized Alert */}
         {profileNotFound && (
           <div

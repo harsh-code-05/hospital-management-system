@@ -283,6 +283,8 @@ public class SecurityConfig {
 
 
 
+                        .requestMatchers("/api/patient/assistant/**").hasRole("PATIENT")
+
                         .requestMatchers("/api/**").authenticated()
 
                         .anyRequest().authenticated()
