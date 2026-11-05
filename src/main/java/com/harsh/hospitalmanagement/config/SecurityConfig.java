@@ -23,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandlerImpl;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
@@ -101,6 +102,7 @@ public class SecurityConfig {
         String targetUrl = frontendUrl.endsWith("/") ? frontendUrl : frontendUrl + "/";
         var apiRequests = PathPatternRequestMatcher.withDefaults().matcher("/api/**");
         var browserLogin = new LoginUrlAuthenticationEntryPoint(targetUrl + "login");
+        var browserAccessDenied = new AccessDeniedHandlerImpl();
         var browserRequestCache = new HttpSessionRequestCache();
         browserRequestCache.setRequestMatcher(request ->
                 HttpMethod.GET.matches(request.getMethod()) && !apiRequests.matches(request));
@@ -115,6 +117,16 @@ public class SecurityConfig {
                         response.getWriter().write("{\"message\":\"Not authenticated\"}");
                     } else {
                         browserLogin.commence(request, response, failure);
+                    }
+                }).accessDeniedHandler((request, response, failure) -> {
+                    if (apiRequests.matches(request)) {
+                        // sendError would redispatch to the protected /error route and redirect anonymous API callers.
+                        response.setStatus(HttpStatus.FORBIDDEN.value());
+                        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                        response.setHeader("Cache-Control", "no-store");
+                        response.getWriter().write("{\"status\":403,\"message\":\"Access denied\"}");
+                    } else {
+                        browserAccessDenied.handle(request, response, failure);
                     }
                 }))
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfTokens))
