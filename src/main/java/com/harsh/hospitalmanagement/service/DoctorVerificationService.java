@@ -1,5 +1,6 @@
 package com.harsh.hospitalmanagement.service;
 
+import com.harsh.hospitalmanagement.dto.DoctorVerificationResponse;
 import com.harsh.hospitalmanagement.entity.Doctor;
 import com.harsh.hospitalmanagement.entity.DoctorVerificationHistory;
 import com.harsh.hospitalmanagement.enums.Role;
@@ -36,6 +37,29 @@ public class DoctorVerificationService {
 
     // Storage integrations pass server-issued immutable object keys after saving private evidence.
     public void replaceCredentials(Long doctorId, Credentials credentials, Authentication authentication) {
+        replaceCredentials(requireDraft(doctorId, authentication), credentials);
+    }
+
+    public void updateRegistrationDetails(Long doctorId, String registrationNumber, String medicalCouncil,
+                                          Integer registrationYear, Authentication authentication) {
+        Doctor doctor = requireDraft(doctorId, authentication);
+        // The HTTP client can edit registration details only for evidence already attached to this profile.
+        replaceCredentials(doctor, new Credentials(registrationNumber, medicalCouncil, registrationYear,
+                doctor.getIdProofDocumentPath(), doctor.getQualificationDocumentPath()));
+    }
+
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public DoctorVerificationResponse getVerification(Long doctorId, Authentication authentication) {
+        Doctor doctor = access.requireManagerForRead(doctorId, authentication).doctor();
+        var events = history.findByDoctor_IdOrderByOccurredAtDescIdDesc(doctorId).stream()
+                .map(event -> new DoctorVerificationResponse.HistoryEntry(event.getPreviousStatus(),
+                        event.getNewStatus(), event.getActorRole(), event.getOccurredAt()))
+                .toList();
+        return new DoctorVerificationResponse(doctor.getId(), doctor.getVerificationStatus(),
+                doctor.getRegistrationNumber(), doctor.getMedicalCouncil(), doctor.getRegistrationYear(), events);
+    }
+
+    private Doctor requireDraft(Long doctorId, Authentication authentication) {
         var manager = access.requireManager(doctorId, authentication);
         Doctor doctor = manager.doctor();
         if (manager.actor().getRole() != Role.DOCTOR) {
@@ -44,14 +68,18 @@ public class DoctorVerificationService {
         if (!isDraft(doctor.getVerificationStatus())) {
             throw new ConflictException("Evidence can only be replaced before submission or after rejection");
         }
+        return doctor;
+    }
+
+    private void replaceCredentials(Doctor doctor, Credentials credentials) {
         if (credentials.registrationNumber() == null || credentials.registrationNumber().isBlank()
                 || credentials.registrationNumber().strip().length() > 100
                 || credentials.medicalCouncil() == null || credentials.medicalCouncil().isBlank()
                 || credentials.medicalCouncil().strip().length() > 255
                 || credentials.registrationYear() == null || credentials.registrationYear() < 1000
                 || credentials.registrationYear() > Year.now().getValue()
-                || !isOwnedKey(doctorId, DocumentKind.ID_PROOF, credentials.idProofKey())
-                || !isOwnedKey(doctorId, DocumentKind.QUALIFICATION, credentials.qualificationKey())) {
+                || !isOwnedKey(doctor.getId(), DocumentKind.ID_PROOF, credentials.idProofKey())
+                || !isOwnedKey(doctor.getId(), DocumentKind.QUALIFICATION, credentials.qualificationKey())) {
             throw new BadRequestException("Valid registration details and doctor-owned verification evidence are required");
         }
 

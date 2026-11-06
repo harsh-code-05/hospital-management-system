@@ -252,6 +252,21 @@ public class SecurityConfig {
                                 "/api/doctors/*/video-fee"
                         ).hasAnyRole("DOCTOR", "ADMIN")
 
+                        .requestMatchers("/api/doctors/*/verification").hasAnyRole("DOCTOR", "ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/doctors/*/verification/credentials",
+                                "/api/doctors/*/verification/submit"
+                        ).hasRole("DOCTOR")
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/doctors/*/verification/review",
+                                "/api/doctors/*/verification/approve",
+                                "/api/doctors/*/verification/reject"
+                        ).hasRole("ADMIN")
+
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/doctors/**"
