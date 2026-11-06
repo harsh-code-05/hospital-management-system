@@ -155,6 +155,10 @@ public class DoctorVerificationService {
         DocumentKind(String segment) {
             this.segment = segment;
         }
+
+        public String pathSegment() {
+            return segment;
+        }
     }
 
     public record Credentials(String registrationNumber, String medicalCouncil, Integer registrationYear,
