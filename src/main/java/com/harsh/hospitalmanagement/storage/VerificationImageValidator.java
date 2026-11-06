@@ -1,5 +1,7 @@
 package com.harsh.hospitalmanagement.storage;
 
+import com.harsh.hospitalmanagement.entity.DoctorVerificationDocumentPolicy;
+
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -24,7 +26,7 @@ import java.util.zip.Inflater;
 
 public final class VerificationImageValidator {
 
-    public static final int MAX_FILE_BYTES = 5 * 1024 * 1024;
+    public static final int MAX_FILE_BYTES = DoctorVerificationDocumentPolicy.MAX_FILE_SIZE_BYTES;
     public static final int MAX_REQUEST_BYTES = 11 * 1024 * 1024;
     public static final long MAX_PIXELS = 12_000_000;
 
