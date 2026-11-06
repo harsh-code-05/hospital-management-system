@@ -23,6 +23,14 @@ class DoctorManagementAccess {
     }
 
     Access requireManager(Long doctorId, Authentication authentication) {
+        return requireManager(doctorId, authentication, true);
+    }
+
+    Access requireManagerForRead(Long doctorId, Authentication authentication) {
+        return requireManager(doctorId, authentication, false);
+    }
+
+    private Access requireManager(Long doctorId, Authentication authentication, boolean lockDoctor) {
         User actor = users.findById(LocalAccount.require(authentication).id())
                 .orElseThrow(() -> new ForbiddenException("Doctor or admin access is required"));
         Role role = actor.getRole();
@@ -31,7 +39,7 @@ class DoctorManagementAccess {
             throw new ForbiddenException("Doctor or admin access is required");
         }
 
-        Doctor doctor = doctors.findByIdForUpdate(doctorId)
+        Doctor doctor = (lockDoctor ? doctors.findByIdForUpdate(doctorId) : doctors.findById(doctorId))
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found"));
         if (role == Role.DOCTOR && !actor.getId().equals(doctor.getUser().getId())) {
             throw new ForbiddenException("You are not allowed to manage this doctor");

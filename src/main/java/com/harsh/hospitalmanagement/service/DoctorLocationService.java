@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Service
 @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -33,6 +34,12 @@ public class DoctorLocationService {
         clinic.setDoctor(access.requireManager(doctorId, authentication).doctor());
         applyDetails(clinic, details);
         return locations.save(clinic);
+    }
+
+    @Transactional(readOnly = true, isolation = Isolation.READ_COMMITTED)
+    public List<DoctorLocation> listActive(Long doctorId, Authentication authentication) {
+        access.requireManagerForRead(doctorId, authentication);
+        return locations.findAllByDoctor_IdAndActiveTrueAndArchivedFalseOrderByIdAsc(doctorId);
     }
 
     public DoctorLocation update(Long doctorId, Long locationId, ClinicDetails details, Authentication authentication) {

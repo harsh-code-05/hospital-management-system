@@ -3,6 +3,7 @@ package com.harsh.hospitalmanagement.repository;
 import com.harsh.hospitalmanagement.entity.DoctorLocation;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface DoctorLocationRepository extends JpaRepository<DoctorLocation, Long> {
@@ -10,4 +11,6 @@ public interface DoctorLocationRepository extends JpaRepository<DoctorLocation, 
     Optional<DoctorLocation> findByIdAndDoctor_Id(Long locationId, Long doctorId);
 
     Optional<DoctorLocation> findByIdAndDoctor_IdAndActiveTrueAndArchivedFalse(Long locationId, Long doctorId);
+
+    List<DoctorLocation> findAllByDoctor_IdAndActiveTrueAndArchivedFalseOrderByIdAsc(Long doctorId);
 }

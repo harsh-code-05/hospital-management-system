@@ -247,6 +247,12 @@ public class SecurityConfig {
                         ).hasRole("ADMIN")
 
                         .requestMatchers(
+                                "/api/doctors/*/locations",
+                                "/api/doctors/*/locations/*",
+                                "/api/doctors/*/video-fee"
+                        ).hasAnyRole("DOCTOR", "ADMIN")
+
+                        .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/doctors/**"
                         ).hasRole("ADMIN")
