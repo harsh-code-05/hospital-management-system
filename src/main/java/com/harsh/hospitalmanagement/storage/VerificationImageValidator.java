@@ -396,6 +396,24 @@ public final class VerificationImageValidator {
         public String contentType() {
             return format.mime;
         }
+
+        public String sha256Hex() {
+            try {
+                byte[] digest = java.security.MessageDigest.getInstance("SHA-256").digest(bytes);
+                var hex = new StringBuilder(64);
+                for (byte b : digest) {
+                    hex.append(Character.forDigit((b >> 4) & 0x0f, 16));
+                    hex.append(Character.forDigit(b & 0x0f, 16));
+                }
+                return hex.toString();
+            } catch (java.security.NoSuchAlgorithmException e) {
+                throw new IllegalStateException("SHA-256 algorithm unavailable", e);
+            }
+        }
+
+        public byte[] copyBytes() {
+            return bytes.clone();
+        }
     }
 
     /** Verifies that IDAT contains exactly one bounded zlib stream with no leftover bytes. */

@@ -4,6 +4,9 @@ import com.harsh.hospitalmanagement.service.DoctorVerificationService.DocumentKi
 import com.harsh.hospitalmanagement.storage.VerificationImageValidator.ValidatedImage;
 
 import java.io.IOException;
+import java.nio.file.Path;
+import java.util.UUID;
+import java.util.function.Supplier;
 
 /** Internal adapter. Callers must authorize access before resolving or using a document key. */
 public interface DocumentStorage {
@@ -22,5 +25,9 @@ public interface DocumentStorage {
     boolean delete(DocumentKey key) throws IOException;
 
     record ReadDocument(String contentType, String downloadFilename, byte[] bytes) {
+    }
+
+    static DocumentStorage createFilesystemStorage(Path root, MasterKeyProvider keys, Supplier<UUID> versions) throws IOException {
+        return new FilesystemDocumentStorage(new WindowsPrivateFiles(root), keys, versions != null ? versions : UUID::randomUUID);
     }
 }
