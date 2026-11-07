@@ -24,6 +24,56 @@ function getDashboardPath(role) {
   }
 }
 
+/**
+ * Strictly validates that a redirect target is a safe internal patient route.
+ * Rejects protocol-relative URLs, absolute URLs, backslashes, double slashes,
+ * and host-confusion prefixes like /patient.evil.com.
+ */
+export function isValidPatientRedirect(target) {
+  if (typeof target !== 'string' || !target.trim()) {
+    return false;
+  }
+  const trimmed = target.trim();
+
+  // Reject protocol-relative URLs (e.g. //evil.example)
+  if (trimmed.startsWith('//')) {
+    return false;
+  }
+
+  // Reject backslashes or percent-encoded backslashes (%5c / %5C)
+  if (trimmed.includes('\\') || /%5c/i.test(trimmed)) {
+    return false;
+  }
+
+  // Reject absolute URLs with schemes (http:, https:, javascript:, data:, etc.)
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+    return false;
+  }
+
+  // Must begin with "/patient"
+  if (!trimmed.startsWith('/patient')) {
+    return false;
+  }
+
+  // Reject double slashes anywhere in the path (e.g. /patient//evil.com)
+  if (trimmed.includes('//')) {
+    return false;
+  }
+
+  // Character immediately following "/patient" must be end-of-string, '?', or '/'
+  // This rejects "/patient.evil.com", "/patients", etc.
+  const charAfter = trimmed.charAt('/patient'.length);
+  if (charAfter !== '' && charAfter !== '?' && charAfter !== '/') {
+    return false;
+  }
+
+  return true;
+}
+
+export function getSafePatientRedirect(redirect) {
+  return isValidPatientRedirect(redirect) ? redirect.trim() : null;
+}
+
 export default function LoginPage() {
   const { user, loading, sessionExpired, refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -39,8 +89,13 @@ export default function LoginPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // If already authenticated and done loading, redirect to role dashboard
+  // If already authenticated and done loading, redirect to role dashboard or redirect target
   if (!loading && user) {
+    const role = user.role ? user.role.replace(/^ROLE_/i, '').toUpperCase() : '';
+    const safeRedirect = getSafePatientRedirect(searchParams.get('redirect'));
+    if (role === 'PATIENT' && safeRedirect) {
+      return <Navigate to={safeRedirect} replace />;
+    }
     return <Navigate to={getDashboardPath(user.role)} replace />;
   }
 
@@ -81,7 +136,13 @@ export default function LoginPage() {
       }
 
       if (refreshedUser && refreshedUser.role) {
-        navigate(getDashboardPath(refreshedUser.role), { replace: true });
+        const userRole = refreshedUser.role.replace(/^ROLE_/i, '').toUpperCase();
+        const safeRedirect = getSafePatientRedirect(searchParams.get('redirect'));
+        if (userRole === 'PATIENT' && safeRedirect) {
+          navigate(safeRedirect, { replace: true });
+        } else {
+          navigate(getDashboardPath(refreshedUser.role), { replace: true });
+        }
       } else {
         setErrorMessage(
           'Unable to verify user role after login. Please try again.',

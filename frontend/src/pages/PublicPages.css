@@ -25,3 +25,301 @@
     grid-template-columns: 284px minmax(0, 1fr);
   }
 }
+
+/* Doctor Discovery Cards & States */
+.doctor-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.doctor-card {
+  background: #fff;
+  border: 1px solid var(--hms-border);
+  border-radius: 16px;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: start;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.doctor-card:hover {
+  border-color: var(--hms-teal);
+  box-shadow: 0 8px 24px rgba(23, 59, 87, 0.08);
+}
+
+.doctor-card__avatar-col {
+  width: 80px;
+}
+
+.doctor-card__avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--hms-light-teal);
+}
+
+.doctor-card__avatar-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--hms-light-teal);
+  color: var(--hms-action);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 700;
+  border: 2px solid #bceae2;
+}
+
+.doctor-card__info-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.doctor-card__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.doctor-card__name {
+  color: var(--hms-navy);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 26px;
+  margin: 0;
+}
+
+.doctor-card__verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #e6f7f4;
+  color: #078b83;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid #bfece4;
+}
+
+.doctor-card__meta {
+  color: var(--hms-muted);
+  font-size: 14px;
+  line-height: 20px;
+  margin: 0;
+}
+
+.doctor-card__specialty {
+  color: var(--hms-navy);
+  font-weight: 600;
+}
+
+.doctor-card__bio {
+  color: var(--hms-text);
+  font-size: 13px;
+  line-height: 20px;
+  margin: 2px 0 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.doctor-card__badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.mode-badge--clinic {
+  background: #f0f7ff;
+  color: #026aa7;
+  border: 1px solid #c8e1fb;
+}
+
+.mode-badge--video {
+  background: #fdf2f8;
+  color: #9d174d;
+  border: 1px solid #fbcfe8;
+}
+
+.doctor-card__clinics {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 13px;
+  color: var(--hms-muted);
+}
+
+.doctor-card__clinics strong {
+  color: var(--hms-text);
+  font-weight: 600;
+}
+
+.doctor-card__clinics-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.doctor-card__clinics-list li {
+  line-height: 18px;
+}
+
+.doctor-card__actions-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  min-width: 160px;
+  align-self: center;
+}
+
+.doctor-card__fee-display {
+  text-align: right;
+}
+
+.doctor-card__fee-label {
+  font-size: 11px;
+  color: var(--hms-muted);
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.doctor-card__fee-amount {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--hms-navy);
+}
+
+.doctor-card__book-button {
+  white-space: nowrap;
+  padding: 10px 20px;
+  font-weight: 600;
+}
+
+.discovery-loading,
+.discovery-empty,
+.discovery-error {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--hms-border);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
+  min-height: 240px;
+  padding: 40px;
+  text-align: center;
+  margin-top: 20px;
+}
+
+.discovery-spinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid var(--hms-teal);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.discovery-empty__icon {
+  align-items: center;
+  background: var(--hms-light-teal);
+  border-radius: 50%;
+  color: var(--hms-teal);
+  display: flex;
+  font-size: 32px;
+  height: 64px;
+  justify-content: center;
+  width: 64px;
+  margin-bottom: 4px;
+}
+
+.discovery-empty h3,
+.discovery-error h3 {
+  color: var(--hms-navy);
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.discovery-empty p {
+  color: var(--hms-muted);
+  font-size: 14px;
+  line-height: 20px;
+  margin: 0;
+  max-width: 440px;
+}
+
+.discovery-error {
+  border-color: #f3bec4;
+  color: #a52b35;
+}
+
+.discovery-error p {
+  color: #a52b35;
+  font-size: 14px;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .doctor-card {
+    grid-template-columns: 60px 1fr;
+    gap: 16px;
+  }
+  .doctor-card__avatar,
+  .doctor-card__avatar-placeholder {
+    width: 60px;
+    height: 60px;
+    font-size: 20px;
+  }
+  .doctor-card__avatar-col {
+    width: 60px;
+  }
+  .doctor-card__actions-col {
+    grid-column: 1 / -1;
+    align-items: stretch;
+    width: 100%;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--hms-border);
+  }
+  .doctor-card__fee-display {
+    text-align: left;
+  }
+  .doctor-card__book-button {
+    width: 100%;
+  }
+}

@@ -1,10 +1,12 @@
 package com.harsh.hospitalmanagement.controller;
 
+import com.harsh.hospitalmanagement.dto.DoctorDiscoveryResponse;
 import com.harsh.hospitalmanagement.enums.AppointmentStatus;
 import com.harsh.hospitalmanagement.enums.ConsultationMode;
 import com.harsh.hospitalmanagement.security.LocalAccount;
 import com.harsh.hospitalmanagement.service.AppointmentService;
 import com.harsh.hospitalmanagement.service.AppointmentSlotService;
+import com.harsh.hospitalmanagement.service.DoctorDiscoveryService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -29,10 +31,25 @@ public class DiscoveryAppointmentController {
 
     private final AppointmentSlotService slots;
     private final AppointmentService appointments;
+    private final DoctorDiscoveryService discoveryService;
 
-    public DiscoveryAppointmentController(AppointmentSlotService slots, AppointmentService appointments) {
+    public DiscoveryAppointmentController(
+            AppointmentSlotService slots,
+            AppointmentService appointments,
+            DoctorDiscoveryService discoveryService
+    ) {
         this.slots = slots;
         this.appointments = appointments;
+        this.discoveryService = discoveryService;
+    }
+
+    @GetMapping("/discovery/doctors")
+    public List<DoctorDiscoveryResponse> discoverDoctors(
+            @RequestParam(required = false) Long specializationId,
+            @RequestParam(required = false) String city,
+            @RequestParam(required = false) String mode
+    ) {
+        return discoveryService.discoverDoctors(specializationId, city, mode);
     }
 
     @GetMapping("/discovery/doctors/{doctorId}/slots")

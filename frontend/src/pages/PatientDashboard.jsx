@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../api/axios';
 import { isDate, mutationErrorMessage, requireAppointmentResult, requirePatientProfileResult } from '../api/responseValidation';
 import { useAuth } from '../context/useAuth';
@@ -45,12 +45,34 @@ function getTodayIso() {
 export default function PatientDashboard() {
   const { user, logout, formDrafts } = useAuth();
   const navigate = useNavigate();
-  const [bookingDraft] = useState(() => formDrafts.get(user.id, 'booking'));
+  const [searchParams] = typeof useSearchParams === 'function'
+    ? useSearchParams()
+    : [typeof URLSearchParams !== 'undefined' ? new URLSearchParams() : { get: () => null }];
+  const location = typeof useLocation === 'function'
+    ? useLocation()
+    : { search: '', state: null };
+
+  const urlDoctorId = searchParams?.get('doctorId') || location?.state?.selectedDoctorId;
+  const urlSpecialtyId = searchParams?.get('specialtyId') || location?.state?.selectedSpecialtyId;
+
+  const [bookingDraft] = useState(() => {
+    const existing = formDrafts.get(user.id, 'booking');
+    if (urlDoctorId) {
+      return {
+        ...existing,
+        selectedDoctorId: String(urlDoctorId),
+        selectedSpecialtyId: urlSpecialtyId ? String(urlSpecialtyId) : (existing?.selectedSpecialtyId ?? 'all'),
+      };
+    }
+    return existing;
+  });
   const [profileDraft] = useState(() => formDrafts.get(user.id, 'patientProfile'));
   const bookingInProgress = useRef(false);
 
   // Active view tab
-  const [activeTab, setActiveTab] = useState(bookingDraft ? 'book' : profileDraft ? 'profile' : 'appointments');
+  const [activeTab, setActiveTab] = useState(
+    urlDoctorId ? 'book' : bookingDraft ? 'book' : profileDraft ? 'profile' : 'appointments'
+  );
 
   // Patient profile state
   const [patientProfile, setPatientProfile] = useState(null);
@@ -86,7 +108,9 @@ export default function PatientDashboard() {
   // Booking wizard state
   const [specializations, setSpecializations] = useState([]);
   const [doctors, setDoctors] = useState([]);
-  const [selectedSpecialtyId, setSelectedSpecialtyId] = useState(bookingDraft?.selectedSpecialtyId ?? 'all');
+  const [selectedSpecialtyId, setSelectedSpecialtyId] = useState(
+    bookingDraft?.selectedSpecialtyId ?? (urlSpecialtyId ? String(urlSpecialtyId) : 'all')
+  );
   const { selection, selectDoctor, selectDate, refreshSlots, selectSlot, getCurrentSlot } =
     usePatientSlots(bookingDraft, getTodayIso());
   const {
@@ -96,6 +120,18 @@ export default function PatientDashboard() {
   const [isBooking, setIsBooking] = useState(false);
   const [bookingError, setBookingError] = useState('');
   const [bookingSuccess, setBookingSuccess] = useState('');
+
+  useEffect(() => {
+    if (urlDoctorId) {
+      setActiveTab('book');
+      if (urlSpecialtyId) {
+        setSelectedSpecialtyId(String(urlSpecialtyId));
+      }
+      if (String(selectedDoctorId) !== String(urlDoctorId)) {
+        selectDoctor(String(urlDoctorId));
+      }
+    }
+  }, [urlDoctorId, urlSpecialtyId, selectedDoctorId, selectDoctor]);
 
   // 1. Fetch Patient Profile
   const fetchProfile = useCallback(async () => {
