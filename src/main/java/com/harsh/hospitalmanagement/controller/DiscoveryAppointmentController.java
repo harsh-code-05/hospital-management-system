@@ -9,13 +9,18 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -37,6 +42,24 @@ public class DiscoveryAppointmentController {
                         slot.getLocation() == null ? null : slot.getLocation().getId(), slot.getConsultationMode(),
                         slot.getFee().toPlainString(), "INR", slot.getOfferVersion()))
                 .toList();
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    ResponseEntity<Map<String, Object>> handleMissingParameter(MissingServletRequestParameterException failure) {
+        return invalidParameter(failure.getParameterName());
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<Map<String, Object>> handleInvalidParameter(MethodArgumentTypeMismatchException failure) {
+        return invalidParameter(failure.getName());
+    }
+
+    private ResponseEntity<Map<String, Object>> invalidParameter(String parameter) {
+        String message = "date".equals(parameter)
+                ? "Query parameter 'date' is required and must be a valid date in YYYY-MM-DD format."
+                : "Invalid value for parameter '" + parameter + "'.";
+        return ResponseEntity.badRequest().contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("status", 400, "message", message));
     }
 
     @PostMapping("/appointments")

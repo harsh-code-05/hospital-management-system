@@ -6,12 +6,14 @@ import PatientDashboard from './pages/PatientDashboard.jsx'
 import DoctorDashboard from './pages/DoctorDashboard.jsx'
 import AdminDashboard from './pages/AdminDashboard.jsx'
 import HomePage from './pages/HomePage.jsx'
+import DoctorDiscoveryPage from './pages/DoctorDiscoveryPage.jsx'
 import './App.css'
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/discover" element={<DoctorDiscoveryPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
       <Route

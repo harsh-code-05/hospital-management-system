@@ -269,6 +269,27 @@ public class SecurityConfig {
 
                         .requestMatchers(
                                 HttpMethod.POST,
+                                "/api/doctors/*/verification/documents/*"
+                        ).hasRole("DOCTOR")
+
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/doctors/*/verification/documents/*"
+                        ).hasRole("DOCTOR")
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/doctors/*/verification/documents/*"
+                        ).hasRole("ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/doctors/*/verification/documents",
+                                "/api/doctors/*/verification/documents/*/history"
+                        ).hasAnyRole("DOCTOR", "ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.POST,
                                 "/api/doctors/**"
                         ).hasRole("ADMIN")
 

@@ -8,6 +8,7 @@ import com.harsh.hospitalmanagement.repository.DoctorRepository;
 import com.harsh.hospitalmanagement.repository.SpecializationRepository;
 import com.harsh.hospitalmanagement.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 
 import com.harsh.hospitalmanagement.dto.DoctorUpdateRequest;
@@ -49,6 +50,7 @@ public class DoctorService {
         return doctorRepository.save(doctor);
     }
 
+    @Transactional
     public Doctor createDoctor(DoctorRequest request, String adminEmail) {
 
         User user = userRepository.findById(request.getUserId())
@@ -82,10 +84,12 @@ public class DoctorService {
         return savedDoctor;
     }
 
+    @Transactional
     public Doctor createDoctor(DoctorRequest request) {
         return createDoctor(request, "admin");
     }
 
+    @Transactional
     public Doctor updateDoctor(Long id, DoctorUpdateRequest request, String adminEmail) {
 
         Doctor doctor = doctorRepository.findById(id)

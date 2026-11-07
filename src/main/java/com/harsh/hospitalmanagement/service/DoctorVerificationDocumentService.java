@@ -11,6 +11,7 @@ import com.harsh.hospitalmanagement.enums.VerificationActorRole;
 import com.harsh.hospitalmanagement.enums.VerificationDocumentKind;
 import com.harsh.hospitalmanagement.enums.VerificationStatus;
 import com.harsh.hospitalmanagement.exception.ConflictException;
+import com.harsh.hospitalmanagement.exception.DocumentStorageUnavailableException;
 import com.harsh.hospitalmanagement.exception.ForbiddenException;
 import com.harsh.hospitalmanagement.exception.ResourceNotFoundException;
 import com.harsh.hospitalmanagement.repository.DoctorRepository;
@@ -400,7 +401,25 @@ public class DoctorVerificationDocumentService implements DoctorVerificationDocu
     }
 
     @Transactional(readOnly = true, isolation = Isolation.READ_COMMITTED)
+    public List<DoctorVerificationDocument> getActiveDocuments(Long doctorId, Authentication authentication) {
+        Objects.requireNonNull(doctorId, "Doctor ID must not be null");
+        access.requireManagerForRead(doctorId, authentication);
+        return documentRepository.findByDoctorIdOrderByCreatedAtDesc(doctorId).stream()
+                .filter(DoctorVerificationDocument::isActive)
+                .toList();
+    }
+
+    @Transactional(readOnly = true, isolation = Isolation.READ_COMMITTED)
     public List<DoctorVerificationDocument> getDocumentHistory(Long doctorId, VerificationDocumentKind kind) {
+        return documentRepository.findByDoctorIdAndDocumentKindOrderByCreatedAtDesc(doctorId, kind);
+    }
+
+    @Transactional(readOnly = true, isolation = Isolation.READ_COMMITTED)
+    public List<DoctorVerificationDocument> getDocumentHistory(
+            Long doctorId, VerificationDocumentKind kind, Authentication authentication) {
+        Objects.requireNonNull(doctorId, "Doctor ID must not be null");
+        Objects.requireNonNull(kind, "Verification document kind must not be null");
+        access.requireManagerForRead(doctorId, authentication);
         return documentRepository.findByDoctorIdAndDocumentKindOrderByCreatedAtDesc(doctorId, kind);
     }
 
@@ -461,9 +480,13 @@ public class DoctorVerificationDocumentService implements DoctorVerificationDocu
         }
     }
 
+    public boolean isStorageAvailable() {
+        return documentStorage != null;
+    }
+
     private DocumentStorage requireStorage() {
         if (documentStorage == null) {
-            throw new IllegalStateException("Document storage is disabled or unavailable");
+            throw new DocumentStorageUnavailableException("Document storage service is temporarily unavailable");
         }
         return documentStorage;
     }
